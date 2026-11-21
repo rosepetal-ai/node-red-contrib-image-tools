@@ -1,3 +1,18 @@
+---
+title: "Padding Node - Add Margins Around Images"
+description: "Add top, bottom, left and right margins of a solid color around images in Node-RED. Part of @rosepetal/node-red-contrib-image-tools."
+head:
+  - - meta
+    - name: "keywords"
+      content: "node-red, padding, margin, border, canvas, opencv, rosepetal"
+  - - meta
+    - property: "og:title"
+      content: "Padding Node - @rosepetal/node-red-contrib-image-tools"
+  - - meta
+    - property: "og:description"
+      content: "Add top, bottom, left and right margins of a solid color around images in Node-RED."
+---
+
 # Padding Node
 
 ## Purpose & Use Cases

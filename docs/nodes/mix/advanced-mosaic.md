@@ -1,3 +1,18 @@
+---
+title: "Advanced Mosaic Node - Canvas Layout with Resize and Rotation"
+description: "Compose the images of an array on a canvas in Node-RED with a position, size, rotation and stacking order per image. Part of @rosepetal/node-red-contrib-image-tools."
+head:
+  - - meta
+    - name: "keywords"
+      content: "node-red, advanced mosaic, canvas, image layout, rotation, layering, mask propagation, opencv, rosepetal"
+  - - meta
+    - property: "og:title"
+      content: "Advanced Mosaic Node - @rosepetal/node-red-contrib-image-tools"
+  - - meta
+    - property: "og:description"
+      content: "Compose the images of an array on a canvas in Node-RED with a position, size, rotation and stacking order per image."
+---
+
 # Advanced Mosaic Node
 
 ## Purpose & Use Cases
@@ -10,8 +25,6 @@ The `advanced-mosaic` node provides sophisticated layout capabilities beyond bas
 - **Artistic Compositions**: Create asymmetric, visually interesting image arrangements
 - **Dashboard Design**: Position charts and data visualizations with precise control
 - **Poster Creation**: Design promotional materials with sophisticated image arrangements
-
-*[PLACEHOLDER - Add GIF showing complex layouts with custom positioning and variable cell sizes]*
 
 ## Input/Output Specification
 
@@ -105,4 +118,192 @@ Rules:
 ## Real-World Examples
 
 ### Magazine Article Layout
-```javascript\n// In function node: set custom positions for magazine layout\nmsg.images.forEach((img, i) => {\n  if (i === 0) { // Hero image\n    img.position = { x: 0, y: 0, width: 800, height: 400 };\n  } else if (i === 1) { // Side image\n    img.position = { x: 820, y: 0, width: 300, height: 200 };\n  } else { // Thumbnail strip\n    img.position = { x: 100 * i, y: 420, width: 80, height: 80 };\n  }\n});\n```\nCreate professional magazine-style layouts with hero images and supporting visuals.\n\n### Dashboard Layout\n```\n[Chart Images] → [Function: Set Positions] → [Advanced Mosaic: Custom layout] → [Dashboard]\n```\nPosition charts, graphs, and KPI displays in precise dashboard arrangements.\n\n### Product Showcase\n```javascript\n// Custom product display with hero and detail shots\nmsg.productImages[0].position = { x: 0, y: 0, width: 600, height: 600 }; // Main product\nmsg.productImages[1].position = { x: 620, y: 0, width: 280, height: 200 }; // Detail 1\nmsg.productImages[2].position = { x: 620, y: 220, width: 280, height: 200 }; // Detail 2\nmsg.productImages[3].position = { x: 620, y: 440, width: 280, height: 160 }; // Detail 3\n```\n\n### Artistic Collage Creation\n```\n[Art Images] → [Function: Random Positions] → [Advanced Mosaic: Overlap enabled] → [Artistic Collage]\n```\nCreate visually interesting overlapping compositions with controlled randomness.\n\n### Web Design Mockup\n```\n[UI Elements] → [Function: Responsive Positions] → [Advanced Mosaic: Fixed canvas] → [Mockup]\n```\nArrange UI elements for web design prototypes and mockups.\n\n## Common Issues & Troubleshooting\n\n### Position Conflicts\n- **Issue**: Images overlapping unintentionally or awkward positioning\n- **Solution**: Validate position calculations and implement collision detection\n- **Prevention**: Use position validation functions before processing\n\n### Canvas Size Problems\n- **Issue**: Canvas too small for positioned elements or excessive whitespace\n- **Solution**: Use auto-sizing or carefully calculate required canvas dimensions\n- **Planning**: Consider element positions and sizes when planning canvas\n\n### Performance with Complex Layouts\n- **Issue**: Slow processing with many overlapping elements\n- **Optimization**: Minimize unnecessary overlaps, use appropriate image sizes\n- **Monitoring**: Track processing times and optimize layout complexity\n\n### Memory Issues\n- **Issue**: Large canvases with high-resolution images consume excessive memory\n- **Solution**: Use appropriately sized images for final output requirements\n- **Strategy**: Consider final display size when sizing source images\n\n## Integration Patterns\n\n### Professional Layout Workflow\n```\nContent → Analyze Layout → Calculate Positions → Advanced Mosaic → Output\n```\nAutomated professional layout generation based on content analysis.\n\n### Interactive Design System\n```\nUser Input → Position Calculator → Advanced Mosaic → Preview → Iterate\n```\nInteractive layout system for design applications.\n\n### Template-Based Generation\n```\nLayout Template → Apply to Content → Advanced Mosaic → Branded Output\n```\nUse predefined templates for consistent branded layouts.\n\n### Responsive Layout System\n```\nContent → Detect Screen Size → Calculate Responsive Positions → Advanced Mosaic → Adaptive Output\n```\nCreate layouts that adapt to different output dimensions.\n\n## Advanced Usage\n\n### Template-Based Positioning\n```javascript\n// Define layout templates\nconst templates = {\n  hero: {\n    main: { x: 0, y: 0, width: 0.7, height: 1.0 },\n    sidebar: [  \n      { x: 0.72, y: 0, width: 0.28, height: 0.3 },\n      { x: 0.72, y: 0.32, width: 0.28, height: 0.3 },\n      { x: 0.72, y: 0.64, width: 0.28, height: 0.36 }\n    ]\n  },\n  grid: {\n    // Define grid-based template\n  }\n};\n\nmsg.layout = templates[msg.layoutType];\n```\n\n### Responsive Position Calculation\n```javascript\n// Calculate positions based on canvas size\nfunction calculateResponsivePositions(images, canvasWidth, canvasHeight) {\n  return images.map((img, i) => {\n    // Implement responsive positioning logic\n    const position = {\n      x: Math.floor((i % 3) * canvasWidth / 3),\n      y: Math.floor(Math.floor(i / 3) * canvasHeight / 3),\n      width: canvasWidth / 3 - 10,\n      height: canvasHeight / 3 - 10\n    };\n    return { ...img, position };\n  });\n}\n```\n\n### Overlap Management\n```javascript\n// Detect and resolve position conflicts\nfunction resolveOverlaps(elements) {\n  for (let i = 0; i < elements.length; i++) {\n    for (let j = i + 1; j < elements.length; j++) {\n      if (elementsOverlap(elements[i], elements[j])) {\n        // Implement overlap resolution strategy\n        adjustPosition(elements[j], elements[i]);\n      }\n    }\n  }\n  return elements;\n}\n```\n\n### Dynamic Layout Optimization\n```javascript\n// Optimize layout based on content analysis\nfunction optimizeLayout(images, canvasSize) {\n  // Analyze image importance, size requirements, etc.\n  const important = images.filter(img => img.priority === 'high');\n  const secondary = images.filter(img => img.priority === 'medium');\n  const background = images.filter(img => img.priority === 'low');\n  \n  // Position important images first, then fill with secondary\n  return arrangeByPriority(important, secondary, background, canvasSize);\n}\n```\n\n## Best Practices\n\n### Layout Design\n- Plan layouts on paper or design tools before implementing\n- Use consistent spacing and alignment principles\n- Consider visual hierarchy and reading patterns\n- Test layouts with different content variations\n\n### Position Management\n- Use relative positioning for responsive layouts\n- Implement position validation to prevent errors\n- Consider overlap handling strategies from the start\n- Document position calculation logic for maintenance\n\n### Performance Optimization\n- Use appropriate image sizes for final output requirements\n- Minimize unnecessary overlapping elements\n- Consider memory implications of large canvas sizes\n- Profile performance with realistic content loads\n\n### Quality Considerations\n- Use high-quality source images for scaling operations\n- Choose appropriate output formats for intended use\n- Consider compression settings for web vs. print\n- Test final output in intended display environment\n\n### Development Workflow\n- Start with simple positioning and add complexity gradually\n- Use debug output to verify position calculations\n- Implement position validation and error handling\n- Create reusable positioning templates for consistency
+```javascript
+// In function node: set custom positions for magazine layout
+msg.images.forEach((img, i) => {
+  if (i === 0) { // Hero image
+    img.position = { x: 0, y: 0, width: 800, height: 400 };
+  } else if (i === 1) { // Side image
+    img.position = { x: 820, y: 0, width: 300, height: 200 };
+  } else { // Thumbnail strip
+    img.position = { x: 100 * i, y: 420, width: 80, height: 80 };
+  }
+});
+```
+Create professional magazine-style layouts with hero images and supporting visuals.
+
+### Dashboard Layout
+```
+[Chart Images] → [Function: Set Positions] → [Advanced Mosaic: Custom layout] → [Dashboard]
+```
+Position charts, graphs, and KPI displays in precise dashboard arrangements.
+
+### Product Showcase
+```javascript
+// Custom product display with hero and detail shots
+msg.productImages[0].position = { x: 0, y: 0, width: 600, height: 600 }; // Main product
+msg.productImages[1].position = { x: 620, y: 0, width: 280, height: 200 }; // Detail 1
+msg.productImages[2].position = { x: 620, y: 220, width: 280, height: 200 }; // Detail 2
+msg.productImages[3].position = { x: 620, y: 440, width: 280, height: 160 }; // Detail 3
+```
+
+### Artistic Collage Creation
+```
+[Art Images] → [Function: Random Positions] → [Advanced Mosaic: Overlap enabled] → [Artistic Collage]
+```
+Create visually interesting overlapping compositions with controlled randomness.
+
+### Web Design Mockup
+```
+[UI Elements] → [Function: Responsive Positions] → [Advanced Mosaic: Fixed canvas] → [Mockup]
+```
+Arrange UI elements for web design prototypes and mockups.
+
+## Common Issues & Troubleshooting
+
+### Position Conflicts
+- **Issue**: Images overlapping unintentionally or awkward positioning
+- **Solution**: Validate position calculations and implement collision detection
+- **Prevention**: Use position validation functions before processing
+
+### Canvas Size Problems
+- **Issue**: Canvas too small for positioned elements or excessive whitespace
+- **Solution**: Use auto-sizing or carefully calculate required canvas dimensions
+- **Planning**: Consider element positions and sizes when planning canvas
+
+### Performance with Complex Layouts
+- **Issue**: Slow processing with many overlapping elements
+- **Optimization**: Minimize unnecessary overlaps, use appropriate image sizes
+- **Monitoring**: Track processing times and optimize layout complexity
+
+### Memory Issues
+- **Issue**: Large canvases with high-resolution images consume excessive memory
+- **Solution**: Use appropriately sized images for final output requirements
+- **Strategy**: Consider final display size when sizing source images
+
+## Integration Patterns
+
+### Professional Layout Workflow
+```
+Content → Analyze Layout → Calculate Positions → Advanced Mosaic → Output
+```
+Automated professional layout generation based on content analysis.
+
+### Interactive Design System
+```
+User Input → Position Calculator → Advanced Mosaic → Preview → Iterate
+```
+Interactive layout system for design applications.
+
+### Template-Based Generation
+```
+Layout Template → Apply to Content → Advanced Mosaic → Branded Output
+```
+Use predefined templates for consistent branded layouts.
+
+### Responsive Layout System
+```
+Content → Detect Screen Size → Calculate Responsive Positions → Advanced Mosaic → Adaptive Output
+```
+Create layouts that adapt to different output dimensions.
+
+## Advanced Usage
+
+### Template-Based Positioning
+```javascript
+// Define layout templates
+const templates = {
+  hero: {
+    main: { x: 0, y: 0, width: 0.7, height: 1.0 },
+    sidebar: [  
+      { x: 0.72, y: 0, width: 0.28, height: 0.3 },
+      { x: 0.72, y: 0.32, width: 0.28, height: 0.3 },
+      { x: 0.72, y: 0.64, width: 0.28, height: 0.36 }
+    ]
+  },
+  grid: {
+    // Define grid-based template
+  }
+};
+
+msg.layout = templates[msg.layoutType];
+```
+
+### Responsive Position Calculation
+```javascript
+// Calculate positions based on canvas size
+function calculateResponsivePositions(images, canvasWidth, canvasHeight) {
+  return images.map((img, i) => {
+    // Implement responsive positioning logic
+    const position = {
+      x: Math.floor((i % 3) * canvasWidth / 3),
+      y: Math.floor(Math.floor(i / 3) * canvasHeight / 3),
+      width: canvasWidth / 3 - 10,
+      height: canvasHeight / 3 - 10
+    };
+    return { ...img, position };
+  });
+}
+```
+
+### Overlap Management
+```javascript
+// Detect and resolve position conflicts
+function resolveOverlaps(elements) {
+  for (let i = 0; i < elements.length; i++) {
+    for (let j = i + 1; j < elements.length; j++) {
+      if (elementsOverlap(elements[i], elements[j])) {
+        // Implement overlap resolution strategy
+        adjustPosition(elements[j], elements[i]);
+      }
+    }
+  }
+  return elements;
+}
+```
+
+### Dynamic Layout Optimization
+```javascript
+// Optimize layout based on content analysis
+function optimizeLayout(images, canvasSize) {
+  // Analyze image importance, size requirements, etc.
+  const important = images.filter(img => img.priority === 'high');
+  const secondary = images.filter(img => img.priority === 'medium');
+  const background = images.filter(img => img.priority === 'low');
+  
+  // Position important images first, then fill with secondary
+  return arrangeByPriority(important, secondary, background, canvasSize);
+}
+```
+
+## Best Practices
+
+### Layout Design
+- Plan layouts on paper or design tools before implementing
+- Use consistent spacing and alignment principles
+- Consider visual hierarchy and reading patterns
+- Test layouts with different content variations
+
+### Position Management
+- Use relative positioning for responsive layouts
+- Implement position validation to prevent errors
+- Consider overlap handling strategies from the start
+- Document position calculation logic for maintenance
+
+### Performance Optimization
+- Use appropriate image sizes for final output requirements
+- Minimize unnecessary overlapping elements
+- Consider memory implications of large canvas sizes
+- Profile performance with realistic content loads
+
+### Quality Considerations
+- Use high-quality source images for scaling operations
+- Choose appropriate output formats for intended use
+- Consider compression settings for web vs. print
+- Test final output in intended display environment
+
+### Development Workflow
+- Start with simple positioning and add complexity gradually
+- Use debug output to verify position calculations
+- Implement position validation and error handling
+- Create reusable positioning templates for consistency

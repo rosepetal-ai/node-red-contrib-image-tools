@@ -1,8 +1,21 @@
 # Node-RED Image Processing Toolkit
 
-A comprehensive Node-RED package providing 18 specialized nodes for high-performance image processing using C++ OpenCV backend. Perfect for computer vision workflows, batch processing, and automated image manipulation.
+A comprehensive Node-RED package providing 20 specialized nodes for high-performance image processing using C++ OpenCV backend. Perfect for computer vision workflows, batch processing, and automated image manipulation.
 
 ![Demo](assets/flow_time_example.gif)
+
+## Documentation
+
+| Section | Pages |
+|---------|-------|
+| Overview | [Installation, requirements, nodes, image format and common settings](docs/index.md) |
+| I/O nodes | [image-in](docs/nodes/io/image-in.md) · [image-out](docs/nodes/io/image-out.md) |
+| Transform nodes | [resize](docs/nodes/transform/resize.md) · [rotate](docs/nodes/transform/rotate.md) · [crop](docs/nodes/transform/crop.md) · [padding](docs/nodes/transform/padding.md) · [filter](docs/nodes/transform/filter.md) · [draw](docs/nodes/transform/draw.md) |
+| Mix nodes | [concat](docs/nodes/mix/concat.md) · [mosaic](docs/nodes/mix/mosaic.md) · [advanced-mosaic](docs/nodes/mix/advanced-mosaic.md) |
+| Blend nodes | [blend](docs/nodes/blend/blend.md) · [add-mask](docs/nodes/blend/add-mask.md) · [add-masks](docs/nodes/blend/add-masks.md) |
+| Specialized nodes | [cropBB](docs/nodes/specialized/cropBB.md) · [image-align](docs/nodes/specialized/image-align.md) |
+
+The same pages are published at <https://docs.rosepetal.ai/flows/node-red-contrib-image-tools>.
 
 ## 🚀 Quick Start
 
@@ -28,9 +41,8 @@ cd ~/.node-red && npm install /path/to/node-red-contrib-image-tools
 > npm installs fetch prebuilt binaries for common platforms; build from source only if you are developing or a prebuilt is unavailable.
 
 ### Requirements
-- Node.js 16+ with node-gyp support
-- OpenCV 4.x (auto-detected via pkg-config)
-- C++ compiler with C++17 support
+- Node.js 18.17+ (required by the `sharp` dependency) and Node-RED 1.0.0+
+- Only to build from source: node-gyp build tools, OpenCV 4.x (auto-detected via pkg-config) and a C++ compiler with C++17 support
 
 ## 📋 Node Categories
 
@@ -38,6 +50,7 @@ cd ~/.node-red && npm install /path/to/node-red-contrib-image-tools
 | Node | Purpose | Key Features |
 |------|---------|-------------|
 | **[image-in](docs/nodes/io/image-in.md)** | Load images from filesystem | JPEG/PNG/WebP/etc. support, Sharp backend |
+| **folder-in** | Emit the images of a folder one by one | Configurable interval, loop or one-shot mode, start/stop button |
 | **[image-out](docs/nodes/io/image-out.md)** | Save images with timestamp naming | Auto-naming, overwrite protection, format conversion |
 
 ### Transform Nodes - Image Processing
@@ -49,6 +62,7 @@ cd ~/.node-red && npm install /path/to/node-red-contrib-image-tools
 | **[padding](docs/nodes/transform/padding.md)** | Add configurable margins | Color customization, flexible sizing |
 | **[filter](docs/nodes/transform/filter.md)** | Apply enhancement filters | Blur, sharpen, edge, emboss, Gaussian |
 | **[draw](docs/nodes/transform/draw.md)** | Overlay points and lines on images | Normalized coordinates, typed inputs, C++ compositing |
+| **color-convert** | Convert images between color spaces | GRAY, RGB, RGBA, BGR and BGRA |
 
 ### Mix Nodes - Image Composition
 | Node | Purpose | Key Features |
@@ -62,12 +76,15 @@ cd ~/.node-red && npm install /path/to/node-red-contrib-image-tools
 |------|---------|-------------|
 | **[blend](docs/nodes/blend/blend.md)** | Alpha blend two images with opacity | Background removal, color tolerance |
 | **[add-mask](docs/nodes/blend/add-mask.md)** | Apply polygon-based masks to regions | Coordinate arrays, mask strength control |
+| **[add-masks](docs/nodes/blend/add-masks.md)** | Apply multiple polygon masks colored by class | Class color mappings, global mask strength |
+| **add-bbs** | Draw bounding boxes with labels on images | Tag and confidence labels, color per tag |
 
 ### Specialized Nodes - AI/ML Integration
 | Node | Purpose | Key Features |
 |------|---------|-------------|
 | **[cropBB](docs/nodes/specialized/cropBB.md)** | Extract crops from AI bounding boxes | Object detection integration, confidence filtering |
 | **[image-align](docs/nodes/specialized/image-align.md)** | Ultra-fast image alignment using ECC algorithm | Translation correction, speed presets, real-time processing |
+| **heat-diff** | Heat map of the difference between two images | Colormaps, blur and threshold, difference statistics |
 
 ## Architecture & Performance
 
@@ -98,20 +115,21 @@ cd ~/.node-red && npm install /path/to/node-red-contrib-image-tools
 
 ### Project Structure
 ```
-node-red-contrib-image-tools/
-├── docs/nodes/          # Individual node documentation
-├── nodes/              # Node-RED node implementations
-│   ├── io/             # I/O nodes
-│   ├── transform/      # Transform nodes  
-│   ├── mix/            # Composition nodes
-│   ├── blend/          # Blending nodes
-│   └── specialized/    # AI/ML nodes
-├── lib/                # Shared utilities
-└── assets/             # Documentation assets
+docs/nodes/                    # Individual node documentation
+assets/                        # Documentation assets
 
-rosepetal-image-engine/  # C++ processing engine
-├── src/                # OpenCV implementations
-├── binding.gyp         # Node.js addon configuration
+node-red-contrib-image-tools/  # Node-RED package sources
+├── nodes/                     # Node-RED node implementations
+│   ├── io/                    # I/O nodes
+│   ├── transform/             # Transform nodes
+│   ├── mix/                   # Composition nodes
+│   ├── blend/                 # Blending nodes
+│   └── specialized/           # AI/ML nodes
+└── lib/                       # Shared utilities
+
+rosepetal-image-engine/        # C++ processing engine
+├── src/                       # OpenCV implementations
+├── binding.gyp                # Node.js addon configuration
 └── package.json
 ```
 
@@ -144,7 +162,7 @@ rosepetal-image-engine/  # C++ processing engine
 
 ## 📄 License
 
-This project is part of the Rosepetal development toolkit for Node-RED image processing applications.
+Apache-2.0 (see the `LICENSE` file). This project is part of the Rosepetal development toolkit for Node-RED image processing applications.
 
 ---
 

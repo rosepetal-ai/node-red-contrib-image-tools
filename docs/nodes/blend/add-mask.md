@@ -1,3 +1,18 @@
+---
+title: "Add-Mask Node - Polygon Mask Overlay"
+description: "Blend a polygon mask over an image in Node-RED from normalized polygon coordinates, with a fill color and a mask strength. Part of @rosepetal/node-red-contrib-image-tools."
+head:
+  - - meta
+    - name: "keywords"
+      content: "node-red, add-mask, polygon mask, overlay, segmentation, region of interest, opencv, rosepetal"
+  - - meta
+    - property: "og:title"
+      content: "Add-Mask Node - @rosepetal/node-red-contrib-image-tools"
+  - - meta
+    - property: "og:description"
+      content: "Blend a polygon mask over an image in Node-RED from normalized polygon coordinates, with a fill color and a mask strength."
+---
+
 # Add-Mask Node
 
 ## Purpose & Use Cases
@@ -10,8 +25,6 @@ The `add-mask` node applies polygon-based masks to images using coordinate array
 - **Selective Enhancement**: Apply effects only within specific geometric areas
 - **Quality Control**: Overlay inspection results on products using detected boundaries
 - **Medical Analysis**: Highlight detected anomalies or structures with polygon masks
-
-*[PLACEHOLDER - Add GIF showing various masking operations including product cutouts and artistic effects]*
 
 ## Input/Output Specification
 

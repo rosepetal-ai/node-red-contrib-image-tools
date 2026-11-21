@@ -1,3 +1,18 @@
+---
+title: "Image-In Node - Load Image Files"
+description: "Load an image file from disk into the raw image object used by the other image nodes, with a fixed or a dynamic file path. Part of @rosepetal/node-red-contrib-image-tools."
+head:
+  - - meta
+    - name: "keywords"
+      content: "node-red, image-in, load image, read image file, jpeg, png, webp, bmp, sharp, rosepetal"
+  - - meta
+    - property: "og:title"
+      content: "Image-In Node - @rosepetal/node-red-contrib-image-tools"
+  - - meta
+    - property: "og:description"
+      content: "Load an image file from disk into the raw image object used by the other image nodes, with a fixed or a dynamic file path."
+---
+
 # Image-In Node
 
 ## Purpose & Use Cases

@@ -1,3 +1,18 @@
+---
+title: "Rotate Node - Rotate Images by Any Angle"
+description: "Rotate images in Node-RED by an angle in degrees and fill the uncovered area with a pad color. Part of @rosepetal/node-red-contrib-image-tools."
+head:
+  - - meta
+    - name: "keywords"
+      content: "node-red, rotate, image rotation, angle, pad color, opencv, rosepetal"
+  - - meta
+    - property: "og:title"
+      content: "Rotate Node - @rosepetal/node-red-contrib-image-tools"
+  - - meta
+    - property: "og:description"
+      content: "Rotate images in Node-RED by an angle in degrees and fill the uncovered area with a pad color."
+---
+
 # Rotate Node
 
 ## Purpose & Use Cases
@@ -33,10 +48,10 @@ The `rotate` node provides precise image rotation with customizable padding and 
 ### Rotation Settings
 
 #### Angle
-- **Range**: 0-360 degrees (or negative for counter-clockwise)
+- **Range**: 0-360 degrees (or negative for clockwise)
 - **Precision**: Floating-point precision (e.g., 15.5 degrees)
 - **Sources**: Number, `msg.*`, `flow.*`, `global.*`
-- **Direction**: Positive = clockwise, Negative = counter-clockwise
+- **Direction**: Positive = counter-clockwise, Negative = clockwise
 
 #### Padding Settings
 - **Background Color**: Color to fill expanded canvas areas

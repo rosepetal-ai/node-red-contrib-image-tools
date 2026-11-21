@@ -1,3 +1,18 @@
+---
+title: "Resize Node - Scale Images"
+description: "Scale images in Node-RED to a fixed size or by a factor, keeping the aspect ratio when one dimension is left empty. Part of @rosepetal/node-red-contrib-image-tools."
+head:
+  - - meta
+    - name: "keywords"
+      content: "node-red, resize, scale image, thumbnail, aspect ratio, opencv, rosepetal"
+  - - meta
+    - property: "og:title"
+      content: "Resize Node - @rosepetal/node-red-contrib-image-tools"
+  - - meta
+    - property: "og:description"
+      content: "Scale images in Node-RED to a fixed size or by a factor, keeping the aspect ratio when one dimension is left empty."
+---
+
 # Resize Node
 
 ## Purpose & Use Cases

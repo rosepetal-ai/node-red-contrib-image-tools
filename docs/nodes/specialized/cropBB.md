@@ -1,3 +1,18 @@
+---
+title: "CropBB Node - Crop Detection Bounding Boxes"
+description: "Extract one image crop per bounding box of an inference result in Node-RED, filtered by a minimum confidence. Part of @rosepetal/node-red-contrib-image-tools."
+head:
+  - - meta
+    - name: "keywords"
+      content: "node-red, cropBB, bounding box, object detection, crop, inference, confidence, opencv, rosepetal"
+  - - meta
+    - property: "og:title"
+      content: "CropBB Node - @rosepetal/node-red-contrib-image-tools"
+  - - meta
+    - property: "og:description"
+      content: "Extract one image crop per bounding box of an inference result in Node-RED, filtered by a minimum confidence."
+---
+
 # CropBB Node (Crop Bounding Boxes)
 
 ## Purpose & Use Cases
@@ -10,8 +25,6 @@ The `cropBB` node is specialized for AI/ML workflows, extracting image crops fro
 - **Security/Surveillance**: Extract detected persons or objects from camera feeds  
 - **Medical Imaging**: Extract abnormalities or regions of interest from diagnostic scans
 - **E-commerce Automation**: Extract product images from catalog photos using AI detection
-
-*[PLACEHOLDER - Add GIF showing AI detection results being converted to individual cropped objects]*
 
 ## Input/Output Specification
 
@@ -56,7 +69,7 @@ The node expects detection results in this format:
 ## Configuration Options
 
 ### Input Paths
-- **Image Input Path**: Location of source images (default: `msg.images`)
+- **Image Input Path**: Location of source images (default: `msg.image`)
 - **Bounding Box Input Path**: Location of detection data (default: `msg.default`)
 - **Path Sources**: `msg.*`, `flow.*`, `global.*`
 

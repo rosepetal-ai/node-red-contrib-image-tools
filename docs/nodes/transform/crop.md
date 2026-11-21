@@ -1,3 +1,18 @@
+---
+title: "Crop Node - Extract Image Regions"
+description: "Extract a rectangular region from images in Node-RED, with normalized (0-1) or pixel coordinates. Part of @rosepetal/node-red-contrib-image-tools."
+head:
+  - - meta
+    - name: "keywords"
+      content: "node-red, crop, region of interest, normalized coordinates, opencv, rosepetal"
+  - - meta
+    - property: "og:title"
+      content: "Crop Node - @rosepetal/node-red-contrib-image-tools"
+  - - meta
+    - property: "og:description"
+      content: "Extract a rectangular region from images in Node-RED, with normalized (0-1) or pixel coordinates."
+---
+
 # Crop Node
 
 ## Purpose & Use Cases

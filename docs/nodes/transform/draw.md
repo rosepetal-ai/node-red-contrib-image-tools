@@ -1,3 +1,18 @@
+---
+title: "Draw Node - Overlay Points and Lines"
+description: "Overlay points and line segments on an image in Node-RED, with normalized coordinates, color and opacity. Part of @rosepetal/node-red-contrib-image-tools."
+head:
+  - - meta
+    - name: "keywords"
+      content: "node-red, draw, overlay, points, lines, keypoints, annotation, opencv, rosepetal"
+  - - meta
+    - property: "og:title"
+      content: "Draw Node - @rosepetal/node-red-contrib-image-tools"
+  - - meta
+    - property: "og:description"
+      content: "Overlay points and line segments on an image in Node-RED, with normalized coordinates, color and opacity."
+---
+
 # Draw Node
 
 ## Purpose & Use Cases

@@ -1,3 +1,18 @@
+---
+title: "Filter Node - Blur, Sharpen and Edge Detection"
+description: "Apply blur, sharpening, edge detection, emboss, Gaussian blur, Otsu threshold, histogram equalization or CLAHE to images in Node-RED. Part of @rosepetal/node-red-contrib-image-tools."
+head:
+  - - meta
+    - name: "keywords"
+      content: "node-red, image filter, blur, sharpen, edge detection, emboss, gaussian blur, otsu, histogram equalization, clahe, opencv, rosepetal"
+  - - meta
+    - property: "og:title"
+      content: "Filter Node - @rosepetal/node-red-contrib-image-tools"
+  - - meta
+    - property: "og:description"
+      content: "Apply blur, sharpening, edge detection, emboss, Gaussian blur, Otsu threshold, histogram equalization or CLAHE to images in Node-RED."
+---
+
 # Filter Node
 
 ## Purpose & Use Cases

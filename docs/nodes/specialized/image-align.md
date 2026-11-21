@@ -1,3 +1,18 @@
+---
+title: "Image-Align Node - Align an Image to a Reference"
+description: "Align a target image to a reference image in Node-RED with ECC, with ORB or SIFT features, or with features refined by ECC. Part of @rosepetal/node-red-contrib-image-tools."
+head:
+  - - meta
+    - name: "keywords"
+      content: "node-red, image alignment, image registration, ecc, orb, sift, homography, opencv, rosepetal"
+  - - meta
+    - property: "og:title"
+      content: "Image-Align Node - @rosepetal/node-red-contrib-image-tools"
+  - - meta
+    - property: "og:description"
+      content: "Align a target image to a reference image in Node-RED with ECC, with ORB or SIFT features, or with features refined by ECC."
+---
+
 # Image-Align Node (Ultra-Fast Image Alignment)
 
 ## Purpose & Use Cases
@@ -12,8 +27,6 @@ The `image-align` node provides ultra-fast image alignment using OpenCV's Enhanc
 - **Document Processing**: Align scanned documents for OCR and content analysis
 - **Augmented Reality**: Register camera feeds with reference markers for AR overlay
 - **Time-Lapse Photography**: Stabilize sequences by aligning frames to eliminate camera shake
-
-*[PLACEHOLDER - Add GIF showing before/after alignment of two shifted images]*
 
 ## Input/Output Specification
 

@@ -1,3 +1,18 @@
+---
+title: "Image-Out Node - Save Images to Disk"
+description: "Save raw images or encoded buffers to disk as JPEG, PNG, WebP or BMP in Node-RED, with timestamped file names and overwrite protection. Part of @rosepetal/node-red-contrib-image-tools."
+head:
+  - - meta
+    - name: "keywords"
+      content: "node-red, image-out, save image, write image file, jpeg, png, webp, bmp, timestamp, rosepetal"
+  - - meta
+    - property: "og:title"
+      content: "Image-Out Node - @rosepetal/node-red-contrib-image-tools"
+  - - meta
+    - property: "og:description"
+      content: "Save raw images or encoded buffers to disk as JPEG, PNG, WebP or BMP in Node-RED, with timestamped file names and overwrite protection."
+---
+
 # Image-Out Node
 
 ## Purpose & Use Cases
@@ -62,10 +77,10 @@ This is a terminal node with no outputs. It saves images to the filesystem and d
 - **Applies to**: JPEG and WebP formats
 - **Description**: Higher values = better quality but larger files
 
-### PNG Optimize
-- **Type**: Boolean
-- **Default**: false
-- **Description**: Maximum compression for PNG files (slower but smaller)
+### PNG Compression
+- **Type**: Number (0-9)
+- **Default**: 8
+- **Description**: Compression level for PNG files (higher = smaller file, slower)
 
 ### Overwrite Protection
 - **Type**: Boolean
@@ -177,5 +192,5 @@ Conditionally save images based on detection results.
 
 ## Related Nodes
 - **[image-in](image-in.md)**: Load images from filesystem
-- **[array-out](array-out.md)**: Process multiple images before saving
+- **[array-out](https://docs.rosepetal.ai/flows/node-red-contrib-utils/nodes/io/array-out)** (in `@rosepetal/node-red-contrib-utils`): Process multiple images before saving
 - **[filter](../transform/filter.md)**: Apply enhancements before saving

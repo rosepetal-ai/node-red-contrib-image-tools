@@ -1,3 +1,18 @@
+---
+title: "Mosaic Node - Place Images on a Canvas"
+description: "Place the images of an array on a canvas in Node-RED at the positions set in the node, in pixels or normalized coordinates. Part of @rosepetal/node-red-contrib-image-tools."
+head:
+  - - meta
+    - name: "keywords"
+      content: "node-red, mosaic, canvas, image composition, collage, positioning, opencv, rosepetal"
+  - - meta
+    - property: "og:title"
+      content: "Mosaic Node - @rosepetal/node-red-contrib-image-tools"
+  - - meta
+    - property: "og:description"
+      content: "Place the images of an array on a canvas in Node-RED at the positions set in the node, in pixels or normalized coordinates."
+---
+
 # Mosaic Node
 
 ## Purpose & Use Cases

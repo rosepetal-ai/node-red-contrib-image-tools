@@ -1,3 +1,18 @@
+---
+title: "Add-Masks Node - Polygon Masks Colored by Class"
+description: "Blend several polygon masks over an image in Node-RED, with a color per class name and a global mask strength. Part of @rosepetal/node-red-contrib-image-tools."
+head:
+  - - meta
+    - name: "keywords"
+      content: "node-red, add-masks, polygon masks, segmentation, class colors, object detection, opencv, rosepetal"
+  - - meta
+    - property: "og:title"
+      content: "Add-Masks Node - @rosepetal/node-red-contrib-image-tools"
+  - - meta
+    - property: "og:description"
+      content: "Blend several polygon masks over an image in Node-RED, with a color per class name and a global mask strength."
+---
+
 # add-masks
 
 Applies multiple polygon-based masks to a base image using weighted blending with configurable mask strength and class-based color mapping.

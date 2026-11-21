@@ -1,3 +1,18 @@
+---
+title: "Concat Node - Join Images Side by Side or Stacked"
+description: "Join an array of images into one image in Node-RED, to the right, left, down or up, padding or resizing the ones that differ in size. Part of @rosepetal/node-red-contrib-image-tools."
+head:
+  - - meta
+    - name: "keywords"
+      content: "node-red, concat, concatenate images, image strip, side by side, opencv, rosepetal"
+  - - meta
+    - property: "og:title"
+      content: "Concat Node - @rosepetal/node-red-contrib-image-tools"
+  - - meta
+    - property: "og:description"
+      content: "Join an array of images into one image in Node-RED, to the right, left, down or up, padding or resizing the ones that differ in size."
+---
+
 # Concat Node
 
 ## Purpose & Use Cases

@@ -1,3 +1,18 @@
+---
+title: "Blend Node - Combine Two Images"
+description: "Blend two images in Node-RED with an adjustable opacity, with optional alpha compositing and background color removal. Part of @rosepetal/node-red-contrib-image-tools."
+head:
+  - - meta
+    - name: "keywords"
+      content: "node-red, blend, opacity, alpha compositing, overlay, watermark, background removal, opencv, rosepetal"
+  - - meta
+    - property: "og:title"
+      content: "Blend Node - @rosepetal/node-red-contrib-image-tools"
+  - - meta
+    - property: "og:description"
+      content: "Blend two images in Node-RED with an adjustable opacity, with optional alpha compositing and background color removal."
+---
+
 # Blend Node
 
 ## Purpose & Use Cases
@@ -10,8 +25,6 @@ The `blend` node combines two images using alpha blending techniques, allowing f
 - **Artistic Effects**: Create double exposures and artistic blended compositions
 - **Product Photography**: Combine product shots with environmental backgrounds
 - **UI/UX Design**: Create layered interface elements with transparency effects
-
-*[PLACEHOLDER - Add GIF showing various blending operations including opacity, transparency, and color removal]*
 
 ## Input/Output Specification
 
