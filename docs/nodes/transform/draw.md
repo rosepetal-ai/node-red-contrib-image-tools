@@ -40,12 +40,12 @@ The `draw` node overlays filled circles (points) and straight line segments on o
 
 ### I/O
 - **Input from / Output to**: Typed inputs (`msg`, `flow`, `global`), both `msg.payload` by default.
-- **Output format**: Raw (fastest), JPEG, PNG or WebP, with Quality (`90`), PNG Optimize and the WebP options as in [resize](./resize.md#output-format-options).
+- **Output format**: Raw (fastest), JPEG, PNG or WebP, with Quality (`90`), PNG optimize and the WebP options as in [resize](./resize.md#output-format-options).
 
 ### Points
 Each row of the **Points** table (columns Mode, X, Y, List, Radius, Color, Opacity) configures one filled circle:
 - **X / Y**: Normalized coordinates (`0.0 – 1.0`), required, from `num`, `msg`, `flow` or `global`.
-- **Radius**: Normalized size relative to the shortest image dimension (minimum 1 pixel). Default `0.01`.
+- **Radius**: Normalized size relative to the shortest image dimension (minimum 1 pixel; `0` draws nothing). New rows start at `0.02`; an empty value falls back to `0.01`.
 - **Color**: `#RRGGBB` or `#RRGGBBAA`, typed or read from `msg`, `flow` or `global`. Default `#ff0000`.
 - **Opacity**: Overlay strength (`0.0 – 1.0`), default `1`. Combined with any alpha channel supplied in the color.
 - **Mode**: **Single values**, or **List** to provide `[[x,y], ...]` in one go (JSON, or from `msg`, `flow` or `global`; a JSON string is parsed). The row’s radius/color/opacity apply to every list entry.
@@ -55,7 +55,7 @@ Use **Add point** and **Remove** to manage the rows. Fields keep their typed-inp
 ### Lines
 Each row of the **Lines** table (columns Mode, X1, Y1, X2, Y2, List, Thickness, Color, Opacity) defines one straight segment:
 - **Start / End (X1, Y1, X2, Y2)**: Normalized coordinates, required.
-- **Thickness**: Normalized width relative to the shortest dimension (minimum 1 pixel). Default `0.005`.
+- **Thickness**: Normalized width relative to the shortest dimension (minimum 1 pixel). New rows start at `0.01`; an empty value falls back to `0.005`.
 - **Color**: `#RRGGBB` or `#RRGGBBAA`, typed or dynamic. Default `#00ff00`.
 - **Opacity**: Blend factor (`0.0 – 1.0`), default `1`.
 - **Mode**: **List** feeds multiple lines at once as `[[x0,y0,x1,y1], ...]`. Thickness/color/opacity are reused for each segment.
@@ -79,9 +79,9 @@ If the image is invalid or the addon fails, the node sets `msg.error`, writes th
 ## Tips & Edge Cases
 
 - A point or line with a coordinate outside `[0, 1]`, a missing value or an invalid color is skipped with a warning such as `points[0].x must be a number between 0 and 1`; the others are still drawn.
-- With no valid point or line the node warns `No valid points or lines configured. Outputting original image.` and sends the image unchanged (encoded if an output format is set).
+- With no valid point or line the node warns `No valid points or lines configured. Outputting original image.` and sends the image unchanged in raw format. With JPEG, PNG or WebP output the result is an empty `Buffer`, because the addon returns before encoding (only WebP with the `sharp` options is still encoded).
 - Opacity multiplies the color alpha, so `#FF000080` at opacity `0.5` results in 25% final strength.
-- Grayscale inputs are supported; color overlays are converted using luminance weighting.
+- Grayscale inputs are supported; color overlays are converted using luminance weighting and added to the pixel values rather than blended, so a black overlay leaves a grayscale image unchanged.
 - For chained overlays, prefer `raw` output to avoid repeated re-encoding.
 
 ## Example Flow
@@ -94,4 +94,4 @@ If the image is invalid or the addon fails, the node sets `msg.error`, writes th
    └─▶ [image-out]
 ```
 
-This creates a face marker plus a baseline overlay, fully driven by message content.
+This creates a face marker, placed from the message, plus a fixed baseline overlay.

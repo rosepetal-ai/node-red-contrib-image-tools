@@ -35,7 +35,7 @@ In **Single image** mode, the image read from **Input from** (`msg.payload` by d
 
 One image per message: an array is not accepted in this mode. To save several images from one message, use **Multiple images** mode.
 
-In **Multiple images** mode, **Input** (`msg.payload` by default) is an array of objects (a single object is treated as an array of one). Each object carries its image in **Image field** (`bitmap` by default), and optionally its folder and file name:
+In **Multiple images** mode, **Input** (`msg.payload` by default) is an array of objects (a single object is treated as an array of one). Each object carries its image in **Image field** (`bitmap` by default), its folder (`outputDir`; an item without one is skipped unless **Output dir** sets one folder for all items) and optionally its file name:
 
 ```javascript
 msg.payload = [
@@ -84,13 +84,13 @@ None. The node writes files and reports the result in its status.
 - Folders are created when they do not exist.
 
 ### Overwrite Protection
-With **Protection** checked, a name that already exists in the folder becomes `<name>_2.<ext>`, then `_3` and so on, up to 1000 variations. The node knows the files of a folder from one listing made when it first writes there, plus its own writes; files that other programs create later are seen again only when **Max Images** re-lists the folder (at most every 5 seconds).
+With **Protection** checked, a name that already exists in the folder becomes `<name>_2.<ext>`, then `_3` and so on, up to `_999`. The node knows the files of a folder from one listing made when it first writes there, plus its own writes; files that other programs create later are seen again only when **Max Images** re-lists the folder (at most every 5 seconds).
 
 ### Max Images
 After each save the node counts **every file in the folder**, not only the images it wrote, and deletes the oldest ones (by modification time) until at most **Max Images** remain. Use a folder of its own for each Image-Out node that has a limit.
 
 ### Disk Limit
-Before writing, the node reads the usage of the file system of the folder. At or above the limit it logs a warning, shows a yellow `disk <n>% full` status and skips the file (in Multiple images mode, the remaining items of the message).
+Before writing, the node reads the usage of the file system of the folder. At or above the limit it logs a warning, shows a yellow `disk <n>% full` status and skips the file (in Multiple images mode, the remaining items of the message; when no item of the message was saved, the node then fails with `All <n> items failed.`).
 
 ## Performance & Technical Details
 
@@ -115,7 +115,7 @@ A failure is reported with `node.error` as `Error saving image: <message>` (a Ca
 - **"No image data found at specified input path"**: nothing at **Input from**
 - **"Invalid image structure"**: the raw image object is not valid (see the warning logged before it)
 - **"Cannot create directory: ..."**: the folder cannot be created; check the permissions
-- **"Too many file variations exist"**: 1000 files with the same base name already exist
+- **"Too many file variations exist"**: the name and all its variations up to `_999` already exist
 - **"BMP output requires raw image data, not an encoded buffer"**
 - **"Input must resolve to an array or object."** and **"All `<n>` items failed."** (Multiple images). A single item that fails is skipped with a warning such as `Item 3: no image at "bitmap", skipping.`
 

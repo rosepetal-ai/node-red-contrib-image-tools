@@ -58,9 +58,9 @@ One output. **Output to** (`msg.payload` by default) receives an array with one 
     data: Buffer, width: 200, height: 300, channels: 3, colorSpace: "RGB", dtype: "uint8",
     tag: "person",          // tag of the detection
     confidence: 0.97,       // confidence of the detection
-    bbox: {                 // the crop in pixels of the source image
+    bbox: {                 // the crop in pixels of the source image (here 1000 × 1000)
       x: 150, y: 100, width: 200, height: 300,
-      normalized: { x1: 0.1, y1: 0.2, x2: 0.3, y2: 0.5 }
+      normalized: { x1: 0.15, y1: 0.1, x2: 0.35, y2: 0.4 }
     }
   },
   // ... more crops

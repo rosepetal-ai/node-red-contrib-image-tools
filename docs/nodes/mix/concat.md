@@ -37,7 +37,7 @@ The `concat` node joins the images of an array side by side or one above the oth
 ### Outputs
 One output:
 - **Combined Image**: one image, written to **Output** (`msg.payload` by default), as a raw image object or an encoded `Buffer` (JPEG/PNG/WebP)
-- **Dimensions**: joining to the right or left, the width is the sum of the widths and the height the largest height; joining down or up, the other way round
+- **Dimensions**: joining to the right or left, the width is the sum of the widths (the scaled widths with Resize to max) and the height the largest height; joining down or up, the other way round
 - `msg.performance.rpimage.<key>`: `{ conversion, task, total }` in milliseconds
 
 ## Configuration Options
@@ -73,7 +73,7 @@ For a horizontal join the strategies act on the height; for a vertical join, on 
 - When the joined image has alpha (RGBA, BGRA), the padding is transparent
 
 ### Inference
-With **Transform inference coordinates** checked, **Inf. Input** must hold an array with one entry per input image, each the inference array of that image. The node maps every detection and segmentation into the joined image and writes a single flat array to **Inf. Output**.
+With **Transform inference coordinates** checked, **Inf. Input** must hold an array with one entry per input image, each the inference array of that image. The node maps every detection (with `raw_boxes`) and segmentation polygon into the joined image and writes a single flat array to **Inf. Output**; other entries are copied unchanged and bitmap masks are not transformed. The image sizes are read from the raw image objects: with encoded `Buffer` inputs the coordinates come out as `NaN`.
 
 ## Status and Errors
 
@@ -109,7 +109,7 @@ Document multi-step processes vertically with centered alignment.
 
 ### Social Media Carousel
 ```
-[Image Array] → [Resize: Same height] → [Concat: Direction=Right, Strategy=Pad at start] → [Carousel Image]
+[Image Array] → [Resize: Height=Set to 600, Width empty] → [Concat: Direction=Right, Strategy=Pad at start] → [Carousel Image]
 ```
 Create horizontal image strips for social media.
 

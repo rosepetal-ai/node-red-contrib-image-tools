@@ -65,10 +65,10 @@ The defaults (0, 0, 1, 1, normalised) select the whole image.
 ### Crop Parameters
 X Position, Y Position, Width and Height each take a number or a `msg`, `flow` or `global` property. A value that is not a number fails with `Value "..." from property "..." is not a valid number.`
 
-**Bounds**: the region is clamped to the image. X and Y are limited to the image, and Width and Height to at least 1 pixel and at most what remains to the right and below. A region partly outside the image gives the part inside it; an empty or zero width or height gives a region 1 pixel wide or high. No warning is logged.
+**Bounds**: the region is clamped to the image. X and Y are limited to the image, and Width and Height to at least 1 pixel and at most what remains to the right and below. A region that reaches past the right or bottom edge is cut at that edge; a negative X or Y is raised to 0 without shortening the width or height, and a region that starts beyond the image becomes a 1-pixel strip at its edge; an empty or zero width or height gives a region 1 pixel wide or high. No warning is logged.
 
 ### Inference
-With **Transform inference coordinates** checked, the detections and segmentations read from **Inf. Input** are mapped into the cropped region (measured on the first input image) and written to **Inf. Output**. Coordinates are clipped to the crop; a detection whose box overlaps the crop by less than 10 % of its area is dropped, and so is a polygon left with fewer than 3 points. Bitmap masks are cropped too.
+With **Transform inference coordinates** checked, the detections and segmentations read from **Inf. Input** are mapped into the cropped region (measured on the first input image) and written to **Inf. Output**. Coordinates are clipped to the crop; a detection whose box overlaps the crop by less than 10 % of its area is dropped. Segmentations are not filtered by overlap: their polygon points are clipped to the crop edge, and only a polygon with fewer than 3 points is removed. Bitmap masks are cropped too.
 
 ## Status and Errors
 
@@ -122,7 +122,7 @@ Extract regions based on image analysis results.
 
 ### Out of Bounds Cropping
 - **Issue**: Crop region extends beyond image boundaries
-- **Result**: The region is clamped to the image without a warning, so the output is smaller than requested
+- **Result**: The region is clamped to the image without a warning, so the output is smaller than requested, or shifted when X or Y is negative
 - **Prevention**: Validate coordinates before processing
 
 ### Dynamic Coordinate Errors

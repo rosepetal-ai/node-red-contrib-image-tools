@@ -79,7 +79,7 @@ One output.
 - Each box is drawn as a closed outline through its four corners, so rotated boxes are drawn rotated.
 - The label (`scratch (91.0%)`, `scratch` or `91.0%`, depending on the two Show options) is written in black on a filled rectangle of the box colour, above the topmost corner of the box. With both Show options off, no label is drawn.
 - Line thickness and text size grow with the image: the thickness in pixels is about Box Thickness × √(width × height) / 1000, at least 1.
-- Tags without a mapping get an automatic colour: the colour of a fixed palette of 216 that differs most from those already in use, kept for that tag as long as Node-RED runs.
+- Tags without a mapping get an automatic colour, chosen again for every message: pure red for the first one when there are no mappings, otherwise the colour of a fixed palette of 216 that differs most from those already in use. The colour of an unmapped tag therefore depends on the mappings and on the other unmapped tags of the message and their order; map the tags that need a fixed colour.
 
 ### Status
 

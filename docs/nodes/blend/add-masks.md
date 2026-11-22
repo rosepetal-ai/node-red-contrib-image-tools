@@ -30,10 +30,10 @@ The node reads an array of mask objects. It accepts the segmentation output of t
 - **Class name** (required): `tag`, `class_name`, `className`, `label` or `class` (the first non-empty string)
 - **Geometry** (one of):
   - `polygons`: array of polygons; each polygon is an array of `[x, y]` points in **normalized** coordinates (0‑1)
-  - `mask`: a mask image `{data, width, height, channels, colorSpace, dtype}`, a 2D matrix of numbers, or an array of 2D matrices
+  - `mask`: a mask image `{data, width, height, channels, colorSpace, dtype}`, a 2D matrix of numbers, or an array of 2D matrices (only the first one is drawn)
 - Any extra fields are ignored. If an object has valid `polygons`, they are used and `mask` is ignored.
 
-Mask images and matrices are made binary (any non-zero value is inside the mask; for a 4-channel image the alpha channel is used, for a 3-channel image its gray value) and scaled to the size of the base image with nearest-neighbour interpolation.
+Mask images and matrices are made binary (any non-zero value is inside the mask; for a 4-channel image the alpha channel is used, for a 3-channel image its gray value; matrix values below 1/255, negative ones included, count as zero) and scaled to the size of the base image with nearest-neighbour interpolation.
 
 **Example (direct inferencer output)**
 ```javascript
@@ -65,7 +65,7 @@ Only `msg` properties are read and written: the editor also offers `flow` and `g
 - **Output**: where the result is written (default: `msg.payload`), with the size and color space of the base image
 
 ### Processing Options
-- **Global Mask Strength**: 0-100 % (default 50): inside a mask each pixel becomes image × (100 − strength) + class colour × strength
+- **Global Mask Strength**: 0-100 % (default 50): inside a mask each pixel becomes image × (100 − strength) / 100 + class colour × strength / 100
 - **Output Format**: Raw (fastest), JPEG, PNG or WebP, with Quality (`90`), PNG Optimize and the WebP options as in [resize](../transform/resize.md#output-format-options)
 - **Debug / Debug Width**: **Show processed image** under the node in the editor (default width 200)
 
@@ -109,7 +109,7 @@ If a pixel is covered by both "person" and "car" masks, only the **red (person)*
 ## Outputs, Status and Errors
 
 - **Output**: the image with the masks; `msg.performance.rpimage.rp_add_masks`: `{ conversion, task, total }` in milliseconds
-- **Status**: green dot `OK: <n> img in <t> ms (conv <c> ms | task <k> ms)`, where `<n>` is the number of polygons and masks drawn
+- **Status**: green dot `OK: <n> img in <t> ms (conv <c> ms | task <k> ms)`, where `<n>` is the number of polygons and masks counted in the input (one per polygon, per mask image and per valid matrix, even those that are not drawn)
 - **Empty array**: the base image is written to Output unchanged and the status shows `OK: 0 img ...`
 - **Validation**: the whole message fails if any entry is invalid. The node sets `msg.error` (with `validationError: true`), writes the base image to Output, logs a warning, shows a red ring `Error: <first 30 characters>` and still sends the message. Messages include `Masks input must be an array`, `Base image is invalid or missing`, `Mask at index <i> is missing a valid class/tag field`, `Mask at index <i> must include either 'polygons' or 'mask'`, `Invalid coordinate at index <i>.polygons[<j>][<k>]: coordinates must be in range [0, 1]` and `Invalid mask data at index <i>: expected raw mask image or 2D matrix`
 

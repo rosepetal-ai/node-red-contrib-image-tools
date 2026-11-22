@@ -75,7 +75,7 @@ With **Transform inference coordinates** checked, the normalized coordinates of 
 
 ## Status and Errors
 
-- **Success**: green dot `OK: <n> img in <t> ms (conv <c> ms | task <k> ms)`, plus the preview format with Debug on
+- **Success**: green dot `OK: <n> img in <t> ms (conv <c> | task <k> ms)` (no `ms` after the conversion time); with Debug on it reads `(conv <c> ms | task <k> ms)` followed by the preview format
 - **Failure**: `msg.error` is set, the input is written back to **Output**, a warning is logged, the status shows a red ring `Error: <first 30 characters>` and the message is still sent
 
 ## Performance Notes

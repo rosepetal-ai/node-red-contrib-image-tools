@@ -57,7 +57,7 @@ One output.
 }
 ```
 
-Pixels that are pure black (0) in either grayscale image are left out of every statistic: they are usually the borders of an alignment or the padding of a composite. `validRatio` is the share of pixels that remain. The statistics are computed on the difference after Blur and Threshold.
+Pixels that are pure black (0) in either grayscale image are left out of every statistic: they are usually the borders of an alignment or the padding of a composite. `validRatio` is the share of pixels that remain. The statistics are computed on the difference after Blur and Threshold, except SSIM, which compares the two grayscale images.
 
 - `msg.performance.rpimage.<key>`: `{ conversion, task, total }` in milliseconds.
 - On failure: `msg.error` (`message`, `operation`, `hint`, `details`, `timestamp`, `nodeId`, `nodeName`, `nodeType`), with Image 1 written to **Output**; the message is still sent.

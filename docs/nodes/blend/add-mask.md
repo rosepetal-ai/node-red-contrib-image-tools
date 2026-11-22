@@ -58,7 +58,7 @@ The editor has no Name field for this node, so its timings are recorded under `m
 - **Relative Positioning**: 0.0 = left/top edge, 1.0 = right/bottom edge
 
 #### Mask Strength
-- **Effect**: inside the polygon each pixel becomes image × (100 − strength) + fill colour × strength; outside it the image is unchanged
+- **Effect**: inside the polygon each pixel becomes image × (100 − strength) / 100 + fill colour × strength / 100; outside it the image is unchanged
 - **Range**: 1-100. A value of 0 is read as the default 50
 
 #### Fill Color
@@ -75,7 +75,7 @@ The polygon is filled with hard edges (no anti-aliasing).
 ## Status and Errors
 
 - **Success**: green dot `OK: 1 img in <t> ms (conv <c> ms | task <k> ms)`, plus the preview format with Debug on
-- **Failure**: `msg.error` is set (with `validationError: true` for invalid input), **Output** is left as it was, a warning is logged, the status shows a red ring `Error: <first 30 characters>` and the message is still sent. Messages: `Base image is invalid or missing`, `Polygon coordinates must be an array`, `Polygon coordinates array is empty`, `Invalid polygon coordinate at index <i>: expected [x, y] pair`, `...: coordinates must be numbers`, `...: coordinates must be in range [0, 1]`
+- **Failure**: `msg.error` is set (with `validationError: true` for invalid input), **Output** is left as it was (an array there is cut to its first item), a warning is logged, the status shows a red ring `Error: <first 30 characters>` and the message is still sent. Messages: `Base image is invalid or missing`, `Polygon coordinates must be an array`, `Polygon coordinates array is empty`, `Invalid polygon coordinate at index <i>: expected [x, y] pair`, `...: coordinates must be numbers`, `...: coordinates must be in range [0, 1]`
 
 ## Performance Notes
 
@@ -109,7 +109,7 @@ Mark the centre of the image in yellow (Fill Color `#ffff00`, Mask Strength 50).
 - **Solution**: Make the polygon an array of `[x, y]` pairs of numbers between 0 and 1; pixel coordinates must be divided by the image width and height first
 
 ### Incorrect Path Configuration
-- **Issue**: `Base image is invalid or missing` or `Polygon coordinates must be an array`
+- **Issue**: `Base image is invalid or missing` or `Polygon coordinates must be an array`, or `Invalid imagePath "..."` / `Invalid polygonPath "..."` when an object on the path is missing (for example `msg.payload.default` with the default Polygon Path)
 - **Solution**: Point **Image** and **Polygon Path** at the `msg` properties that hold them
 - **Default Paths**: `msg.payload.image` and `msg.payload.default.masks[0].mask[0]`
 

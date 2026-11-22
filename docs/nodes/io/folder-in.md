@@ -46,7 +46,7 @@ One output. Every interval the node sends a **new** message with:
 |---|---|---|---|
 | Name | string | empty | Label of the node in the editor |
 | Folder Path | string | empty (required) | Folder to read. Only a fixed string works: with `msg`, `flow` or `global` the node warns `Dynamic folder paths require message input to resolve` and does not start |
-| Interval (ms) | number | `1000` | Time between two images. The first image is sent at once. If loading an image takes longer than the interval, the next one follows as soon as it is done. `0` or an empty value gives 1000. Only a number works: a `msg`, `flow` or `global` value is not resolved and gives 1000 |
+| Interval (ms) | number | `1000` | Time between two images. The first image is sent at once. If loading an image takes longer than the interval, the next one follows as soon as it is done. An empty or negative value gives 1000. Only a number works: a `msg`, `flow` or `global` value is not resolved and gives 1000 |
 | Mode | enum | Loop (repeat images) | **Loop (repeat images)**: start again with the first file after the last one. **One-shot (stop at end)**: stop after the last file |
 | Output to | TypedInput (msg/flow/global) | `msg.payload` | Where the image is written |
 | Debug | boolean | off | **Show loaded images**: a preview of each image under the node in the editor |
@@ -84,7 +84,7 @@ Converts every image of the folder once, ten per second, and saves the results.
 - **The node does not start and shows `No images found`** — Cause: Folder Path is empty, is set from `msg` / `flow` / `global`, does not exist (`Error scanning folder: ...` in the debug sidebar), or holds no file with a supported extension (`.tif` is not one). · Solution: set Folder Path as a string to an existing folder that the Node-RED process can read.
 - **The interval does not change when set from `msg`, `flow` or `global`** — Cause: those values are not resolved. · Solution: type the interval as a number.
 - **`Error: ...` repeats for the same file** — Cause: a file with a supported extension cannot be decoded (a corrupt file, or a grayscale image with alpha: `Unsupported number of channels: 2`). The node does not move past the failing file. · Solution: stop the node, remove or convert the file, and start it again.
-- **The button shows `Node not deployed`** — Cause: the node is new or changed and has not been deployed. · Solution: deploy first.
+- **Pressing the button shows `Node not deployed`** — Cause: the runtime has no running node with this id (the toggle request got a 404). A new or changed node cannot get there: its button stays disabled until it is deployed. · Solution: deploy the flow, with the node and its flow enabled.
 
 ## See Also
 

@@ -109,12 +109,12 @@ Results are rounded to whole pixels. Leaving both empty fails with `Both dimensi
 - **Use Case**: Small files with alpha, lossy or lossless
 
 ### Debug Options
-- **Show processed image**: a JPEG preview of the result (or of the first image of an array) under the node in the editor
+- **Show processed image**: a preview of the result (or of the first image of an array) under the node in the editor, as JPEG for Raw output and in the output format otherwise
 - **Debug Width**: width of the preview in pixels
 - **Interactive**: click the preview to hide it
 
 ### Inference
-With **Transform inference coordinates** checked, the node reads the inference results at **Inf. Input** and writes them to **Inf. Output** after the image is resized. Normalized coordinates do not change with a resize, so the detections and segmentations are written back as they were read. Only a non-empty array is processed; a failure logs `Inference transform: ...` and leaves the message as it is.
+With **Transform inference coordinates** checked, the node reads the inference results at **Inf. Input** and writes them to **Inf. Output** after the image is resized. Normalized coordinates do not change with a resize, so boxes and polygons are written back unchanged. Bitmap masks of segmentations are resized to the new image size, except when the output is encoded by OpenCV (JPEG, PNG, or WebP without the `sharp` options): the new size is then not read back and the masks are left as they are. Only a non-empty array is processed; a failure logs `Inference transform: ...` and leaves the message as it is.
 
 ## Status and Errors
 
@@ -170,7 +170,7 @@ Resize based on runtime requirements.
 
 ### Too Much Memory
 - **Issue**: `Resize to WxH would allocate too much memory`
-- **Cause**: The computed size is over 4 GiB, usually a factor typed in **Set to** mode or a wrong dynamic value
+- **Cause**: The computed size is over 4 GiB, usually a pixel size typed in **Multiply by** mode or a wrong dynamic value
 - **Solution**: Check the mode and the values; raise `ROSEPETAL_MAX_RESIZE_BYTES` only if such a size is intended
 
 ### Quality vs. File Size Balance

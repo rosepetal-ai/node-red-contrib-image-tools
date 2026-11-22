@@ -63,14 +63,14 @@ One output, written to **Output to** (`msg.payload` by default):
 - **Intensity**: below 1.0 the result is mixed with the original (0 gives the original); 1.0 and above give the full blur
 
 #### Sharpening
-- **Operation**: convolution with a sharpening kernel of Kernel Size; **Sharpness** scales the effect (0 leaves the image unchanged)
+- **Operation**: convolution with a sharpening kernel of Kernel Size; **Sharpness** scales the effect (0 leaves the image unchanged). Kernel Size 3 weights the 4 nearest neighbours; any larger Kernel Size weights only the 8 nearest neighbours, so 5 to 15 give the same result
 
 #### Edge Detection
 - **Operation**: Sobel gradients in x and y on the grayscale image, averaged; **Edge Strength** multiplies the result
 - **Output**: a grayscale edge map, returned with the channel count of the input (the alpha channel of a 4-channel image becomes opaque)
 
 #### Emboss
-- **Operation**: 3×3 relief kernel from top-left to bottom-right, plus 128 so that flat areas become mid-gray; **Emboss Depth** scales the kernel. Kernel Size is not used
+- **Operation**: 3×3 relief kernel from top-left to bottom-right, then 128 is added to every channel (clipped at 255). The kernel weights add up to 1, so a flat area keeps its value plus 128 rather than becoming mid-gray (only black areas end up mid-gray); **Emboss Depth** scales every weight except the centre. Kernel Size is not used
 
 #### Gaussian Blur
 - **Operation**: Gaussian blur with a Kernel Size window and sigma = Kernel Size / 6 × **Blur Radius**. A Blur Radius of 0 lets OpenCV derive sigma from the window size
@@ -100,7 +100,7 @@ One output, written to **Output to** (`msg.payload` by default):
 
 ## Status and Errors
 
-- **Success**: green dot `OK: <n> img in <t> ms (conv <c> ms | task <k> ms)`, plus the preview format with Debug on
+- **Success**: green dot `OK: <n> img in <t> ms (conv. <c> ms | task <k> ms)`; with Debug on it reads `(conv <c> ms | task <k> ms)` followed by the preview format
 - **Failure**: `msg.error` is set, the input is written back to **Output to**, a warning is logged, the status shows a red ring `Error: <first 30 characters>` and the message is still sent
 
 ## Performance Notes
@@ -133,7 +133,7 @@ Save an edge map of a part to check its outline.
 ### The Image Does Not Change
 - **Issue**: Blur or Sharpening seems to do nothing
 - **Cause**: Intensity (Sharpness) is 0, or Kernel Size is 3 on a large image
-- **Solution**: Raise the intensity (up to 2.0) or the kernel size (up to 15)
+- **Solution**: Raise the intensity (up to 2.0), or for Blur the kernel size (up to 15)
 
 ### Otsu Output Is Inverted
 - **Issue**: Objects come out black on white instead of white on black

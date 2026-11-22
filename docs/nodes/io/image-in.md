@@ -30,7 +30,7 @@ The `image-in` node is the primary entry point for loading images from the files
 ## Input/Output Specification
 
 ### Inputs
-- Any message triggers the node. Its content is only used when **File Path** is read from a `msg` property.
+- Any message triggers the node. Its content is only used when **File Path** or **Debug Width** is read from a `msg` property.
 
 ### Outputs
 One output. The node writes the decoded image to **Output to** (`msg.payload` by default) and sends the message:

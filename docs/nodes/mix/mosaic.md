@@ -55,7 +55,7 @@ The canvas takes the color space of the inputs: RGBA if any image is RGBA, else 
 | Canvas Height | `600` | Height of the canvas in pixels |
 | Background Color | `#000000` | Colour of the canvas where no image is placed (opaque, also on canvases with alpha) |
 | Normalized Coords | off | X and Y as fractions of the canvas size (0-1); off, in pixels |
-| Image Positions | one row: image 0 at 0, 0 | Table of **Array Index**, **X Position**, **Y Position**; **Add Position** and **Remove** manage the rows |
+| Image Positions | empty; opening the editor adds one row: image 0 at 0, 0 | Table of **Array Index**, **X Position**, **Y Position**; **Add Position** and **Remove** manage the rows |
 | Inference | off | Under **Advanced options**: **Transform inference coordinates**, with **Inf. Input** and **Inf. Output** (both `msg.inference`) |
 
 ### Positioning System
@@ -67,14 +67,14 @@ The canvas takes the color space of the inputs: RGBA if any image is RGBA, else 
 #### Image Positions
 - **Array Index**: which image of the input array to place (0 = first). The same image can be placed in several rows; a row whose index is outside the array is ignored without a warning
 - **X Position / Y Position**: where the top-left corner of the image goes. The image is placed at its own size; the part that falls outside the canvas is cut off
-- **Overlaps**: the pixels of an image replace what is below them; alpha is not blended. With up to 4 rows, later rows are drawn over earlier ones; with more than 4 rows the rows are placed in parallel and the order of overlapping images is not guaranteed
+- **Overlaps**: the pixels of an image replace what is below them; alpha is not blended. With up to 4 rows, later rows are drawn over earlier ones; with more than 4 rows an addon built with OpenMP places the rows in parallel, and the order of overlapping images is then not guaranteed
 
 ### Inference
-With **Transform inference coordinates** checked, **Inf. Input** must hold an array with one entry per input image, each the inference array of that image. Every detection and segmentation is mapped to each place its image was put on the canvas (clipped to the canvas) and the node writes a single flat array to **Inf. Output**. Bitmap masks are not transformed.
+With **Transform inference coordinates** checked, **Inf. Input** must hold an array with one entry per input image, each the inference array of that image. Every detection (with `raw_boxes`) and segmentation polygon is mapped to each place its image was put on the canvas (clipped to the canvas) and the node writes a single flat array to **Inf. Output**; other entries are copied unchanged. Bitmap masks are not transformed. The image sizes are read from the raw image objects: with encoded `Buffer` inputs the coordinates come out as `NaN`.
 
 ## Status and Errors
 
-- **Success**: green dot `OK: 1 img in <t> ms (conv <c> ms | task <k> ms)`, plus the preview format with Debug on
+- **Success**: green dot `OK: <n> pos in <t> ms (conv <c> ms | task <k> ms)`, where n is the number of rows whose Array Index is inside the array, or `OK: empty canvas in <t> ms` when there is none. With Debug on the status reads `OK: 1 img in <t> ms (conv <c> ms | task <k> ms) | <format> (<n> pos)`, or `(empty canvas)` at the end
 - **Failure**: `msg.error` is set, the **first** input image is written to **Output to**, a warning is logged, the status shows a red ring `Error: <first 30 characters>` and the message is still sent. An invalid array gives `Invalid image list`; a canvas size of 0 or less gives `Canvas dimensions must be positive numbers`
 
 ## Performance Notes
