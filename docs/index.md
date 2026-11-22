@@ -15,7 +15,7 @@ head:
 
 # Image Processing Toolkit for Node-RED
 
-`@rosepetal/node-red-contrib-image-tools` provides 20 nodes for Node-RED that load, transform, compose, annotate, compare and save images. The image operations run in a native C++ addon built on OpenCV.
+`@rosepetal/node-red-contrib-image-tools` provides 20 nodes for Node-RED that load, transform, compose, annotate, compare and save images. The image operations run in a native C++ addon built on OpenCV; loading and saving also use `sharp`.
 
 ![A Node-RED flow of image nodes, each showing its processing time in its status](../assets/flow_time_example.gif)
 
@@ -38,14 +38,15 @@ npm fetches a prebuilt native addon, with OpenCV statically linked, for **linux-
 
 ## Nodes
 
-All node types are prefixed with `rp-` and appear under the **RP Image** category in the editor. Flows saved with the earlier type names, without the prefix (`resize`, `crop` and so on), keep working: the published package also registers those names, hidden from the palette.
+All node types are prefixed with `rp-` and appear under the **RP Image** category in the editor. Flows saved with the earlier type names, without the prefix (`resize`, `crop` and so on), keep working: the published package also registers those names, hidden from the palette (every node except `rp-heat-diff`, which never had another name).
 
 ### I/O
 
 | Node | Purpose |
 |------|---------|
 | **[rp-image-in](./nodes/io/image-in.md)** | Load an image file from disk into the raw image object that the other nodes use |
-| **[rp-image-out](./nodes/io/image-out.md)** | Save images to disk as JPEG, PNG, WebP or BMP, with timestamped file names and overwrite protection |
+| **[rp-folder-in](./nodes/io/folder-in.md)** | Emit the image files of a folder one by one at a set interval, in a loop or once, started and stopped with the node's button |
+| **[rp-image-out](./nodes/io/image-out.md)** | Save images to disk as JPEG, PNG, WebP or BMP, one per message or many from an array, with timestamped file names, overwrite protection, a file limit and a disk limit |
 
 ### Transform
 
@@ -57,6 +58,7 @@ All node types are prefixed with `rp-` and appear under the **RP Image** categor
 | **[rp-padding](./nodes/transform/padding.md)** | Add a margin of a solid color on each side |
 | **[rp-filter](./nodes/transform/filter.md)** | Apply blur, sharpening, edge detection, emboss, Gaussian blur, Otsu threshold, histogram equalization or CLAHE |
 | **[rp-draw](./nodes/transform/draw.md)** | Overlay points and line segments, with normalized coordinates, color and opacity |
+| **[rp-color-convert](./nodes/transform/color-convert.md)** | Convert images between the GRAY, RGB, RGBA, BGR and BGRA color spaces |
 
 ### Mix
 
@@ -72,7 +74,8 @@ All node types are prefixed with `rp-` and appear under the **RP Image** categor
 |------|---------|
 | **[rp-blend](./nodes/blend/blend.md)** | Blend two images with an adjustable opacity, with optional alpha compositing and background color removal |
 | **[rp-add-mask](./nodes/blend/add-mask.md)** | Blend a polygon mask over an image, from normalized polygon coordinates, with a fill color and a strength |
-| **[rp-add-masks](./nodes/blend/add-masks.md)** | Blend several polygon masks over an image, with a color per class |
+| **[rp-add-masks](./nodes/blend/add-masks.md)** | Blend several polygon or bitmap masks over an image, with a color per class |
+| **[rp-add-bbs](./nodes/blend/add-bbs.md)** | Draw bounding boxes on an image, labelled with their tag and confidence, with a color per tag |
 
 ### Specialized
 
@@ -80,17 +83,7 @@ All node types are prefixed with `rp-` and appear under the **RP Image** categor
 |------|---------|
 | **[rp-cropBB](./nodes/specialized/cropBB.md)** | Extract one crop per bounding box of an inference result, filtered by a minimum confidence |
 | **[rp-image-align](./nodes/specialized/image-align.md)** | Align a target image to a reference image with ECC, with ORB or SIFT features, or with features refined by ECC |
-
-### Nodes without a reference page
-
-Four nodes are described only by their help text, in the Help tab of the editor's sidebar:
-
-| Node | Category | Purpose |
-|------|----------|---------|
-| **rp-folder-in** | I/O | Emit the image files of a folder one by one at a set interval, in a loop or once, started and stopped with the node's button |
-| **rp-color-convert** | Transform | Convert images between the GRAY, RGB, RGBA, BGR and BGRA color spaces |
-| **rp-add-bbs** | Blend | Draw bounding boxes on an image, labelled with their tag and confidence, with a color per tag |
-| **rp-heat-diff** | Specialized | Compute the per-pixel absolute difference of two images as a color-mapped heat image, with optional difference statistics |
+| **[rp-heat-diff](./nodes/specialized/heat-diff.md)** | Compute the per-pixel absolute difference of two images as a color-mapped heat image, with optional difference statistics |
 
 ## Quick start
 
@@ -117,24 +110,24 @@ The nodes pass raw images between them as objects:
 }
 ```
 
-`rp-image-in` and `rp-folder-in` produce this object. The addon also decodes an encoded image `Buffer` (JPEG, PNG or WebP) given in its place.
+`rp-image-in` and `rp-folder-in` produce this object, with `colorSpace` `GRAY`, `RGB` or `RGBA`. A raw image without `colorSpace` is read as GRAY, RGB or RGBA from its channel count; a `colorSpace` that does not match the channel count is rejected. The transform, mix, blend and specialized nodes (except `rp-cropBB`) also accept an encoded JPEG, PNG, WebP or BMP `Buffer` in its place and decode it in the addon (as RGB, RGBA or GRAY); `rp-image-out` accepts JPEG, PNG and WebP buffers.
 
 ## Common settings
 
 The transform, mix, blend and specialized nodes share these settings:
 
-- **Input from / Output to**: where the image is read and where the result is written, as a `msg` property or a `flow` / `global` context key. The result goes to `msg.payload` by default.
-- **Output Format**: `raw` (the image object, the default) or an encoded `Buffer` in `jpg`, `png` or `webp`. **Quality** (1-100, default 90) applies to JPEG and WebP.
+- **Input from / Output to**: where the image is read and where the result is written, as a `msg` property or a `flow` / `global` context key. The result goes to `msg.payload` by default. The nodes that read two inputs or extra data (`rp-blend`, `rp-add-mask`, `rp-add-masks`, `rp-add-bbs`, `rp-cropBB`, `rp-image-align` and `rp-heat-diff`) read and write `msg` properties only, although their editor also offers `flow` and `global`.
+- **Output Format**: `raw` (the image object, the default) or an encoded `Buffer` in `jpg`, `png` or `webp`. **Quality** (1-100, default 90) applies to JPEG and WebP; **PNG Optimize** sets PNG compression level 6 instead of 0; the WebP options **Lossless**, **Smart Subsample** and **Effort** (0-6) make `sharp` encode the WebP instead of OpenCV. JPEG drops the alpha channel.
 - **Debug**: shows a preview of the result in the editor, with a configurable width (200 pixels by default).
-- **Inference** (`rp-resize`, `rp-rotate`, `rp-crop`, `rp-padding`, `rp-concat`, `rp-mosaic` and `rp-advanced-mosaic`): when checked, the detections and segmentations read from `msg.inference` (by default) get the same geometric change as the image and are written back, so that their coordinates match the output image.
+- **Inference** (`rp-resize`, `rp-rotate`, `rp-crop`, `rp-padding`, `rp-concat`, `rp-mosaic` and `rp-advanced-mosaic`, under **Advanced options**): when checked, the detections and segmentations read from `msg.inference` (by default) get the same geometric change as the image and are written back, so that their coordinates match the output image. Detections are objects with `raw_boxes` (four normalized corner points) and segmentations objects with `polygons` (normalized points); other entries pass unchanged. For the nodes that combine several images, `msg.inference` holds one such array per input image and the result is a single array.
 
-`rp-resize`, `rp-rotate`, `rp-crop`, `rp-padding`, `rp-filter` and `rp-color-convert` take one image or an array of images, and process the images of an array in parallel.
+`rp-resize`, `rp-rotate`, `rp-crop`, `rp-padding`, `rp-filter` and `rp-color-convert` take one image or an array of images, and process the images of an array in parallel. `rp-image-align` and `rp-heat-diff` take two images or two arrays of the same length, paired by index.
 
 ## Timing and errors
 
-The transform, mix, blend and specialized nodes record their processing time in `msg.performance.rpimage.<key>` as `{ conversion, task, total }`, in milliseconds. `<key>` is the name of the node, or its type when it has no name, in lower case and with every run of other characters replaced by `_` (`rp_resize`).
+The transform, mix, blend and specialized nodes, and `rp-folder-in`, record their processing time in `msg.performance.rpimage.<key>` as `{ conversion, task, total }`, in milliseconds. `<key>` is the name of the node, or its type when it has no name, in lower case and with every run of other characters replaced by `_` (`rp_resize`).
 
-When the processing fails, they do not stop the flow: they set `msg.error` (`message`, `operation`, `hint`, `details`, `timestamp`, `nodeId`, `nodeName`, `nodeType`), log a warning and still send the message.
+When the processing fails, the transform, mix, blend and specialized nodes do not stop the flow: they set `msg.error` (`message`, `operation`, `hint`, `details`, `timestamp`, `nodeId`, `nodeName`, `nodeType`, and `validationError: true` when the input was rejected), log a warning, show a red `Error: ...` status and still send the message. The I/O nodes behave differently: see their pages.
 
 ## Performance
 

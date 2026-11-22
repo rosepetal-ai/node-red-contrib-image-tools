@@ -9,11 +9,11 @@ A comprehensive Node-RED package providing 20 specialized nodes for high-perform
 | Section | Pages |
 |---------|-------|
 | Overview | [Installation, requirements, nodes, image format and common settings](docs/index.md) |
-| I/O nodes | [image-in](docs/nodes/io/image-in.md) · [image-out](docs/nodes/io/image-out.md) |
-| Transform nodes | [resize](docs/nodes/transform/resize.md) · [rotate](docs/nodes/transform/rotate.md) · [crop](docs/nodes/transform/crop.md) · [padding](docs/nodes/transform/padding.md) · [filter](docs/nodes/transform/filter.md) · [draw](docs/nodes/transform/draw.md) |
+| I/O nodes | [image-in](docs/nodes/io/image-in.md) · [folder-in](docs/nodes/io/folder-in.md) · [image-out](docs/nodes/io/image-out.md) |
+| Transform nodes | [resize](docs/nodes/transform/resize.md) · [rotate](docs/nodes/transform/rotate.md) · [crop](docs/nodes/transform/crop.md) · [padding](docs/nodes/transform/padding.md) · [filter](docs/nodes/transform/filter.md) · [draw](docs/nodes/transform/draw.md) · [color-convert](docs/nodes/transform/color-convert.md) |
 | Mix nodes | [concat](docs/nodes/mix/concat.md) · [mosaic](docs/nodes/mix/mosaic.md) · [advanced-mosaic](docs/nodes/mix/advanced-mosaic.md) |
-| Blend nodes | [blend](docs/nodes/blend/blend.md) · [add-mask](docs/nodes/blend/add-mask.md) · [add-masks](docs/nodes/blend/add-masks.md) |
-| Specialized nodes | [cropBB](docs/nodes/specialized/cropBB.md) · [image-align](docs/nodes/specialized/image-align.md) |
+| Blend nodes | [blend](docs/nodes/blend/blend.md) · [add-mask](docs/nodes/blend/add-mask.md) · [add-masks](docs/nodes/blend/add-masks.md) · [add-bbs](docs/nodes/blend/add-bbs.md) |
+| Specialized nodes | [cropBB](docs/nodes/specialized/cropBB.md) · [image-align](docs/nodes/specialized/image-align.md) · [heat-diff](docs/nodes/specialized/heat-diff.md) |
 
 The same pages are published at <https://docs.rosepetal.ai/flows/node-red-contrib-image-tools>.
 
@@ -35,7 +35,7 @@ For contributors or platforms without a prebuilt binary:
 ./install.sh
 # or manual steps:
 cd rosepetal-image-engine && npm install && npm run build
-cd ../node-red-contrib-image-tools && npm install
+cd .. && npm install
 cd ~/.node-red && npm install /path/to/node-red-contrib-image-tools
 ```
 > npm installs fetch prebuilt binaries for common platforms; build from source only if you are developing or a prebuilt is unavailable.
@@ -50,7 +50,7 @@ cd ~/.node-red && npm install /path/to/node-red-contrib-image-tools
 | Node | Purpose | Key Features |
 |------|---------|-------------|
 | **[image-in](docs/nodes/io/image-in.md)** | Load images from filesystem | JPEG/PNG/WebP/etc. support, Sharp backend |
-| **folder-in** | Emit the images of a folder one by one | Configurable interval, loop or one-shot mode, start/stop button |
+| **[folder-in](docs/nodes/io/folder-in.md)** | Emit the images of a folder one by one | Configurable interval, loop or one-shot mode, start/stop button |
 | **[image-out](docs/nodes/io/image-out.md)** | Save images with timestamp naming | Auto-naming, overwrite protection, format conversion |
 
 ### Transform Nodes - Image Processing
@@ -62,7 +62,7 @@ cd ~/.node-red && npm install /path/to/node-red-contrib-image-tools
 | **[padding](docs/nodes/transform/padding.md)** | Add configurable margins | Color customization, flexible sizing |
 | **[filter](docs/nodes/transform/filter.md)** | Apply enhancement filters | Blur, sharpen, edge, emboss, Gaussian |
 | **[draw](docs/nodes/transform/draw.md)** | Overlay points and lines on images | Normalized coordinates, typed inputs, C++ compositing |
-| **color-convert** | Convert images between color spaces | GRAY, RGB, RGBA, BGR and BGRA |
+| **[color-convert](docs/nodes/transform/color-convert.md)** | Convert images between color spaces | GRAY, RGB, RGBA, BGR and BGRA |
 
 ### Mix Nodes - Image Composition
 | Node | Purpose | Key Features |
@@ -77,14 +77,14 @@ cd ~/.node-red && npm install /path/to/node-red-contrib-image-tools
 | **[blend](docs/nodes/blend/blend.md)** | Alpha blend two images with opacity | Background removal, color tolerance |
 | **[add-mask](docs/nodes/blend/add-mask.md)** | Apply polygon-based masks to regions | Coordinate arrays, mask strength control |
 | **[add-masks](docs/nodes/blend/add-masks.md)** | Apply multiple polygon masks colored by class | Class color mappings, global mask strength |
-| **add-bbs** | Draw bounding boxes with labels on images | Tag and confidence labels, color per tag |
+| **[add-bbs](docs/nodes/blend/add-bbs.md)** | Draw bounding boxes with labels on images | Tag and confidence labels, color per tag |
 
 ### Specialized Nodes - AI/ML Integration
 | Node | Purpose | Key Features |
 |------|---------|-------------|
 | **[cropBB](docs/nodes/specialized/cropBB.md)** | Extract crops from AI bounding boxes | Object detection integration, confidence filtering |
-| **[image-align](docs/nodes/specialized/image-align.md)** | Ultra-fast image alignment using ECC algorithm | Translation correction, speed presets, real-time processing |
-| **heat-diff** | Heat map of the difference between two images | Colormaps, blur and threshold, difference statistics |
+| **[image-align](docs/nodes/specialized/image-align.md)** | Align an image to a reference with ECC, ORB/SIFT features, or both | Translation to homography models, speed presets |
+| **[heat-diff](docs/nodes/specialized/heat-diff.md)** | Heat map of the difference between two images | Colormaps, blur and threshold, difference statistics |
 
 ## Architecture & Performance
 
