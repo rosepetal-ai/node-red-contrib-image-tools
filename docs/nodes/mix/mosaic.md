@@ -17,7 +17,7 @@ head:
 
 ## Purpose & Use Cases
 
-The `mosaic` node provides manual positioning of multiple images on a canvas with precise coordinate control. It creates composite images by placing images at specific positions, supporting both normalized (0-1) and pixel coordinates for flexible layout creation.
+The `mosaic` node places the images of an array on a canvas of a fixed size, each at a position set in the node, in pixels or normalized (0-1) coordinates. The images keep their own size; to scale or rotate them, use [advanced-mosaic](./advanced-mosaic.md).
 
 **Real-World Applications:**
 - **Custom Layouts**: Create precise image arrangements with exact positioning
@@ -31,131 +31,106 @@ The `mosaic` node provides manual positioning of multiple images on a canvas wit
 ## Input/Output Specification
 
 ### Inputs
-- **Image Array**: Array of image objects to position on canvas
-- **Position Configuration**: Position mappings defined in node configuration
-- **Canvas Parameters**: Canvas dimensions and background settings
+- **Image Array**: an array of raw image objects or encoded JPEG/PNG/WebP/BMP `Buffer`s, read from **Input from** (`msg.payload` by default). A single image is treated as an array of one.
+- **Positions**: set in the node's **Image Positions** table, not taken from the message.
+- **Canvas Width / Canvas Height**: a number, or read from `msg`, `flow` or `global` for each message.
 
 ### Outputs
-- **Composite Image**: Single image with positioned elements on canvas
-- **Fixed Canvas Size**: Canvas dimensions as configured
-- **Format Options**: Raw image object or encoded file formats
+One output:
+- **Composite Image**: one image of Canvas Width × Canvas Height, written to **Output to** (`msg.payload` by default), as a raw image object or an encoded `Buffer` (JPEG/PNG/WebP)
+- `msg.performance.rpimage.<key>`: `{ conversion, task, total }` in milliseconds
+
+The canvas takes the color space of the inputs: RGBA if any image is RGBA, else BGRA, RGB, BGR and GRAY, in that order. Every image is converted to it.
 
 ## Configuration Options
 
-### Input/Output Paths
-- **Input From**: `msg.payload` (default), `flow.*`, `global.*`
-- **Output To**: `msg.payload` (default), `flow.*`, `global.*`
-
-### Canvas Configuration
-
-#### Canvas Dimensions
-- **Canvas Width**: Width of output canvas in pixels
-- **Canvas Height**: Height of output canvas in pixels
-- **Sources**: Number, `msg.*`, `flow.*`, `global.*`
-
-#### Background Settings
-- **Background Color**: Color for empty canvas areas
-- **Default**: Black 
-- **Formats**: RGB (`rgb(255,0,0)`)
+| Property | Default | Meaning |
+|----------|---------|---------|
+| Name | empty | Label of the node; also the key of its timings in `msg.performance.rpimage` |
+| Input from | `msg.payload` | Where the array is read (`msg`, `flow` or `global`) |
+| Output to | `msg.payload` | Where the composite is written (`msg`, `flow` or `global`) |
+| Output Format | Raw (fastest) | Raw (fastest), JPEG, PNG or WebP, with Quality (`90`), PNG Optimize and the WebP options as in [resize](../transform/resize.md#output-format-options) |
+| Debug / Debug Width | off / `200` | **Show processed image** under the node in the editor |
+| Canvas Width | `800` | Width of the canvas in pixels |
+| Canvas Height | `600` | Height of the canvas in pixels |
+| Background Color | `#000000` | Colour of the canvas where no image is placed (opaque, also on canvases with alpha) |
+| Normalized Coords | off | X and Y as fractions of the canvas size (0-1); off, in pixels |
+| Image Positions | one row: image 0 at 0, 0 | Table of **Array Index**, **X Position**, **Y Position**; **Add Position** and **Remove** manage the rows |
+| Inference | off | Under **Advanced options**: **Transform inference coordinates**, with **Inf. Input** and **Inf. Output** (both `msg.inference`) |
 
 ### Positioning System
 
 #### Coordinate System
-- **Normalized Mode**: Values from 0.0 to 1.0 (relative to canvas dimensions)
-- **Pixel Mode**: Absolute pixel coordinates
+- **Normalized Coords off**: X and Y in pixels, rounded to whole pixels
+- **Normalized Coords on**: X and Y multiplied by the canvas width and height
 
-#### Position Configuration
-- **Position Mappings**: Array of position configurations in node editor
-- **Array Index**: Which image from input array to position
-- **X/Y Coordinates**: Position on canvas (normalized or pixel)
-- **Per-Image Control**: Individual positioning for each image
+#### Image Positions
+- **Array Index**: which image of the input array to place (0 = first). The same image can be placed in several rows; a row whose index is outside the array is ignored without a warning
+- **X Position / Y Position**: where the top-left corner of the image goes. The image is placed at its own size; the part that falls outside the canvas is cut off
+- **Overlaps**: the pixels of an image replace what is below them; alpha is not blended. With up to 4 rows, later rows are drawn over earlier ones; with more than 4 rows the rows are placed in parallel and the order of overlapping images is not guaranteed
 
-### Output Format Options
-- **Raw**: Standard image object (fastest for processing chains)
-- **JPEG**: Compressed with quality control
-- **PNG**: Lossless with transparency support
-- **WebP**: Modern format with excellent compression
+### Inference
+With **Transform inference coordinates** checked, **Inf. Input** must hold an array with one entry per input image, each the inference array of that image. Every detection and segmentation is mapped to each place its image was put on the canvas (clipped to the canvas) and the node writes a single flat array to **Inf. Output**. Bitmap masks are not transformed.
+
+## Status and Errors
+
+- **Success**: green dot `OK: 1 img in <t> ms (conv <c> ms | task <k> ms)`, plus the preview format with Debug on
+- **Failure**: `msg.error` is set, the **first** input image is written to **Output to**, a warning is logged, the status shows a red ring `Error: <first 30 characters>` and the message is still sent. An invalid array gives `Invalid image list`; a canvas size of 0 or less gives `Canvas dimensions must be positive numbers`
 
 ## Performance Notes
 
-### C++ Backend Processing
-- **Optimized Canvas Composition**: Efficient positioning and placement on fixed canvas
-- **Memory Management**: Pre-allocated canvas with optimal memory usage
-- **Batch Placement**: All images positioned in single C++ operation
-- **Coordinate Validation**: Automatic bounds checking and position validation
-
-### Position Processing
-- **Coordinate Transformation**: Efficient conversion between normalized and pixel coordinates
-- **Bounds Checking**: Automatic validation of positions within canvas boundaries  
-- **Layer Management**: Proper handling of image placement order and overlaps
+- The canvas is composed in one call to the native OpenCV addon, on the libuv thread pool
 
 ## Real-World Examples
 
-### Custom Dashboard Layout
-```javascript
-// In function node: set specific positions for dashboard elements
+### Four-Panel Layout
+Image Positions (pixels, canvas 800 × 600, four 400 × 300 images):
 
-  { arrayIndex: 0, x: 0, y: 0 }      // Chart at top-left
-  { arrayIndex: 1, x: 400, y: 0 }    // KPI at top-right
-  { arrayIndex: 2, x: 0, y: 300 }   // Graph at bottom-left  
-  { arrayIndex: 3, x: 400, y: 300 }   // Table at bottom-right
+| Array Index | X Position | Y Position |
+|-------------|------------|------------|
+| 0 | 0 | 0 |
+| 1 | 400 | 0 |
+| 2 | 0 | 300 |
+| 3 | 400 | 300 |
 
 ```
-```
-[Dashboard Elements] → [Function: Set Positions] → [Mosaic: 800x600 canvas] → [Dashboard]
+[Four images] → [Array-Out] → [Mosaic: 800x600 canvas] → [Image-Out]
 ```
 
 ### Template-Based Layout
-```javascript
-// Predefined layout template positions
+Image Positions with **Normalized Coords** on:
 
-  { arrayIndex: 0, x: 0.1, y: 0.1 }   // Normalized coordinates
-  { arrayIndex: 1, x: 0.6, y: 0.1 }    // 10% and 60% from left
-  { arrayIndex: 2, x: 0.1, y: 0.6 }     // 10% and 60% from top
+| Array Index | X Position | Y Position |
+|-------------|------------|------------|
+| 0 | 0.1 | 0.1 |
+| 1 | 0.6 | 0.1 |
+| 2 | 0.1 | 0.6 |
 
-```
-```
-[Content Images] → [Function: Apply Template] → [Mosaic: Normalized coords] → [Layout]
-```
+The images keep their size, so they must fit the cells of the template; resize them first if needed.
 
-### Overlay Composition
+### Logo Overlay
 ```
 [Base Image] → [Array-In: pos=0] ┐
-[Logo Overlay] → [Array-In: pos=1] ├→ [Function: Set Positions] → [Mosaic: Canvas] → [Branded Image]
-[Text Overlay] → [Array-In: pos=2] ┘
+[Logo]       → [Array-In: pos=1] ├→ [Array-Out] → [Mosaic: rows 0 at 0,0 and 1 at 20,20] → [Branded Image]
 ```
-Position logos and text overlays at specific coordinates.
-
-### Print Layout Design
-```javascript
-// Precise positioning for print layout
-canvasWidth = 1200;  // Print width
-canvasHeight = 1800; // Print height
-  { arrayIndex: 0, x: 100, y: 100 }   // Header image
-  { arrayIndex: 1, x: 100, y: 400 }   // Content image
-  { arrayIndex: 2, x: 100, y: 1200 }  // Footer image
-
-```
+Place a logo over the top-left corner of a photo; the canvas has the size of the photo. Array-In and Array-Out are part of [`@rosepetal/node-red-contrib-utils`](https://docs.rosepetal.ai/flows/node-red-contrib-utils/nodes/io/array-in).
 
 ## Common Issues & Troubleshooting
 
-### Position Configuration Errors
-- **Issue**: Images not appearing or positioned incorrectly
-- **Solution**: Verify arrayIndex values match input array length
-- **Validation**: Check that positions array contains valid coordinates
+### Images Missing from the Canvas
+- **Issue**: An image does not appear
+- **Solution**: Check that its **Array Index** is smaller than the length of the input array, and that its position is inside the canvas
 
-### Coordinate System Confusion  
+### Coordinate System Confusion
 - **Issue**: Images appearing in wrong locations
-- **Solution**: Verify normalized vs. pixel coordinate mode matches your values
+- **Solution**: Check **Normalized Coords** against your values
 - **Normalized**: Use 0-1 values for relative positioning
 - **Pixel**: Use absolute coordinates within canvas bounds
 
 ### Canvas Size Problems
-- **Issue**: Images clipped or positioned outside visible area
-- **Solution**: Ensure canvas dimensions accommodate all positioned images
-- **Planning**: Calculate required canvas size based on image positions and sizes
+- **Issue**: Images clipped at the edges
+- **Solution**: Make the canvas large enough for the images at their own size, or resize them first
 
-### Position Array Mismatches
-- **Issue**: ArrayIndex references non-existent images
-- **Result**: Images ignored with warnings logged
-- **Solution**: Validate arrayIndex values against input array length
+### Dynamic Positions
+- **Issue**: The positions must change per message
+- **Cause**: Positions are fixed in the node configuration; only the canvas size can come from the message

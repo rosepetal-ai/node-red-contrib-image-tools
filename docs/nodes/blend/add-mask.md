@@ -17,272 +17,102 @@ head:
 
 ## Purpose & Use Cases
 
-The `add-mask` node applies polygon-based masks to images using coordinate arrays to define masked regions. It creates weighted blending effects within polygon boundaries, perfect for selective image modifications and region-based processing from AI detection or manual selection.
+The `add-mask` node tints the inside of one polygon on an image: within the polygon, the image is mixed with a fill colour by a mask strength. The polygon is given in normalized coordinates, as segmentation models return it. For several polygons coloured by class, use [add-masks](./add-masks.md).
 
 **Real-World Applications:**
-- **AI Object Masking**: Apply masks from AI detection results with polygon coordinates
-- **ROI Processing**: Highlight or modify regions of interest defined by coordinate boundaries  
-- **Selective Enhancement**: Apply effects only within specific geometric areas
-- **Quality Control**: Overlay inspection results on products using detected boundaries
-- **Medical Analysis**: Highlight detected anomalies or structures with polygon masks
+- **Segmentation Display**: Show the region a model found on the original image
+- **ROI Highlighting**: Mark the region of interest of an inspection
+- **Quality Control**: Overlay a detected defect area on the product image
 
 ## Input/Output Specification
 
 ### Inputs
-- **Base Image**: The image to which the polygon mask will be applied
-- **Polygon Coordinates**: Array of [x, y] coordinate pairs defining mask boundary
-- **Mask Parameters**: Strength and fill color via configuration
+- **Image**: the base image, read from `msg.payload.image` by default: a raw image object or an encoded JPEG/PNG/WebP/BMP `Buffer`
+- **Polygon Path**: one polygon, read from `msg.payload.default.masks[0].mask[0]` by default: an array of `[x, y]` pairs with values from 0 to 1
+- Only `msg` properties are read: the editor also offers `flow` and `global`, but the node reads the typed text as a `msg` path
 
 ### Outputs
-- **Masked Image**: Original image with weighted blending applied within polygon area
-- **Selective Processing**: Areas within polygon receive mask treatment based on strength setting
-- **Format Options**: Raw image object or encoded file formats
+One output:
+- **Masked Image**: written to the `msg` property **Output** (`msg.payload` by default), with the size and color space of the input, as a raw image object or an encoded `Buffer` (JPEG/PNG/WebP)
+- `msg.performance.rpimage.<key>`: `{ conversion, task, total }` in milliseconds
 
 ## Configuration Options
 
-### Input Paths
-- **Image Path**: Location of base image to mask (default: `msg.payload.image`)
-- **Polygon Path**: Location of coordinate array (default: `msg.payload.default.masks[0].mask[0]`)  
-- **Path Sources**: `msg.*`, `flow.*`, `global.*`
+| Property | Default | Meaning |
+|----------|---------|---------|
+| Image | `msg.payload.image` | Base image |
+| Polygon Path | `msg.payload.default.masks[0].mask[0]` | The polygon |
+| Output | `msg.payload` | Where the result is written |
+| Output Format | Raw (fastest) | Raw (fastest), JPEG, PNG or WebP, with Quality (`90`), PNG Optimize and the WebP options as in [resize](../transform/resize.md#output-format-options) |
+| Debug / Debug Width | off / `200` | **Show processed image** under the node in the editor |
+| Mask Strength | `50` | 0-100 %: weight of the fill colour inside the polygon |
+| Fill Color | `#ffffff` | Colour mixed into the polygon |
 
-### Output Configuration
-- **Output Path**: Where to store masked result (default: `msg.payload`)
-- **Output Format**: Raw, JPEG, PNG, WebP
-- **Quality Settings**: Compression settings for lossy formats
+The editor has no Name field for this node, so its timings are recorded under `msg.performance.rpimage.rp_add_mask`.
 
 ### Polygon Mask Options
 
 #### Coordinate System
-- **Normalized Coordinates**: All coordinates must be in range [0, 1]
-- **Format**: Array of [x, y] pairs: `[[x1,y1], [x2,y2], [x3,y3], ...]`
+- **Normalized Coordinates**: every `x` and `y` must be a number from 0 to 1
+- **Format**: `[[x1,y1], [x2,y2], [x3,y3], ...]`
 - **Relative Positioning**: 0.0 = left/top edge, 1.0 = right/bottom edge
 
 #### Mask Strength
-- **Range**: 0-100% (0 = no effect, 100 = maximum blending)
-- **Default**: 50% for balanced effect
-- **Purpose**: Controls intensity of mask blending within polygon
+- **Effect**: inside the polygon each pixel becomes image × (100 − strength) + fill colour × strength; outside it the image is unchanged
+- **Range**: 1-100. A value of 0 is read as the default 50
 
 #### Fill Color
-- **Format**: Hex color code (e.g., `#FF0000` for red)
-- **Default**: White (`#FFFFFF`)
-- **Purpose**: Color used for blending within masked polygon area
+- **Format**: picked with the editor's colour picker (`#RRGGBB`)
+- **Grayscale images**: the mean of the red, green and blue values is used
+
+The polygon is filled with hard edges (no anti-aliasing).
 
 ### Output Format Options
-- **Raw**: Standard image object with alpha channel
-- **PNG**: Full transparency preservation (recommended)
-- **WebP**: Modern format with transparency support
-- **JPEG**: Not recommended (transparency becomes background color)
+- **Raw**: Standard image object (fastest between image nodes)
+- **JPEG**: Compressed; the alpha channel of an RGBA input is dropped
+- **PNG**, **WebP**: keep the alpha channel of an RGBA input
+
+## Status and Errors
+
+- **Success**: green dot `OK: 1 img in <t> ms (conv <c> ms | task <k> ms)`, plus the preview format with Debug on
+- **Failure**: `msg.error` is set (with `validationError: true` for invalid input), **Output** is left as it was, a warning is logged, the status shows a red ring `Error: <first 30 characters>` and the message is still sent. Messages: `Base image is invalid or missing`, `Polygon coordinates must be an array`, `Polygon coordinates array is empty`, `Invalid polygon coordinate at index <i>: expected [x, y] pair`, `...: coordinates must be numbers`, `...: coordinates must be in range [0, 1]`
 
 ## Performance Notes
 
-### C++ Backend Processing
-- **Optimized Alpha Processing**: Fast alpha channel manipulation
-- **Edge Smoothing**: High-quality anti-aliasing for smooth mask edges
-- **Memory Efficient**: Direct alpha channel writing without full image copying
-- **Format Handling**: Proper handling of different input mask formats
-
-### Mask Processing Algorithms
-- **Grayscale Conversion**: Efficient luminance-to-alpha conversion
-- **Edge Detection**: Smart edge smoothing for professional results
-- **Threshold Processing**: Fast binary mask generation when needed
+- The mask is drawn and blended in the native OpenCV addon, on the libuv thread pool
 
 ## Real-World Examples
 
-### AI Object Detection Highlighting
+### Segmentation Highlighting
 ```javascript
-// AI detection provides polygon coordinates
-msg.detectedObjects[0] = {
-  polygon: [[0.1, 0.2], [0.8, 0.2], [0.8, 0.7], [0.1, 0.7]],
-  confidence: 0.95
+// Function node before add-mask
+msg.payload = {
+  image: msg.image,
+  default: { masks: [ { mask: [ [[0.1, 0.2], [0.8, 0.2], [0.8, 0.7], [0.1, 0.7]] ] } ] }
 };
-msg.payload.image = originalImage;
-msg.payload.default.masks[0].mask[0] = msg.detectedObjects[0].polygon;
+return msg;
 ```
 ```
-[Image + AI Polygons] → [Add-Mask: 30% red overlay] → [Highlighted Detections]
-```
-
-### Quality Control ROI
-```javascript
-// Define inspection region
-msg.inspectionRegion = [
-  [0.25, 0.25], [0.75, 0.25], 
-  [0.75, 0.75], [0.25, 0.75]
-];
-```
-```
-[Product Image] → [Function: Set ROI] → [Add-Mask: 50% yellow] → [Inspection Overlay]
+[Image + segmentation] → [Function] → [Add-Mask: Mask Strength 30, Fill Color #ff0000] → [Highlighted region]
 ```
 
-### Medical Annotation
-```javascript  
-// Radiologist defined region
-msg.anomalyRegion = [
-  [0.4, 0.3], [0.6, 0.3], [0.65, 0.5], 
-  [0.6, 0.7], [0.4, 0.7], [0.35, 0.5]
-];
+### Inspection Region
 ```
+[Product Image] → [Change: msg.roi = [[0.25,0.25],[0.75,0.25],[0.75,0.75],[0.25,0.75]]] → [Add-Mask: Polygon Path msg.roi, Image msg.payload] → [Inspection Overlay]
 ```
-[Medical Scan] → [Function: Set Polygon] → [Add-Mask: 40% red] → [Annotated Scan]
-```
-
-### Custom Selection Processing
-```javascript
-// User-defined polygon selection
-msg.userSelection = [
-  [0.0, 0.0], [1.0, 0.0], [1.0, 0.5], [0.0, 0.5]
-]; // Top half of image
-```
-```
-[Image] → [Function: Set Selection] → [Add-Mask: 70% blue tint] → [Selective Processing]
-```
-
-### Batch Region Processing
-```
-[Image Array] → [AI Detection] → [Extract Polygons] → [Add-Mask: Highlight] → [Processed Results]
-```
-Process multiple images with AI-detected regions.
+Mark the centre of the image in yellow (Fill Color `#ffff00`, Mask Strength 50).
 
 ## Common Issues & Troubleshooting
 
 ### Invalid Polygon Coordinates
-- **Issue**: Error messages about invalid coordinate format or ranges
-- **Solution**: Ensure coordinates are arrays of [x,y] pairs with values in [0,1] range
-- **Format**: `[[0.1,0.2], [0.8,0.2], [0.8,0.7], [0.1,0.7]]`
-
-### Empty or Missing Polygons
-- **Issue**: No masking effect applied to image
-- **Solution**: Verify polygon path contains valid coordinate array
-- **Check**: Ensure polygon array is not empty and coordinates are properly formatted
-
-### Polygon Outside Image Bounds
-- **Issue**: Mask effect not visible or only partially applied
-- **Cause**: Polygon coordinates outside [0,1] normalized range
-- **Solution**: Validate all coordinates are between 0.0 and 1.0
+- **Issue**: `Invalid polygon coordinate at index ...` in `msg.error`
+- **Solution**: Make the polygon an array of `[x, y]` pairs of numbers between 0 and 1; pixel coordinates must be divided by the image width and height first
 
 ### Incorrect Path Configuration
-- **Issue**: Node cannot find image or polygon data
-- **Solution**: Verify input paths match your message structure
+- **Issue**: `Base image is invalid or missing` or `Polygon coordinates must be an array`
+- **Solution**: Point **Image** and **Polygon Path** at the `msg` properties that hold them
 - **Default Paths**: `msg.payload.image` and `msg.payload.default.masks[0].mask[0]`
 
 ### Weak or Invisible Mask Effects
 - **Issue**: Mask blending barely visible on image
-- **Solution**: Increase mask strength percentage or adjust fill color contrast
-- **Optimization**: Use colors that contrast well with image content
-
-## Integration Patterns
-
-### E-commerce Product Processing
-```
-Product Photo → Background Detection → Generate Mask → Add-Mask → Clean Cutout
-```
-Automated product cutout generation for online catalogs.
-
-### Portrait Enhancement Workflow
-```
-Portrait → Create Vignette → Add-Mask → Color Enhancement → Artistic Portrait
-```
-Professional portrait processing with masking effects.
-
-### Logo Production Pipeline
-```
-Design → Shape Creation → Mask Generation → Add-Mask → Export Formats
-```
-Convert solid designs into transparent logo formats.
-
-### Medical Analysis Pipeline
-```
-Scan → Region Detection → Mask Creation → Add-Mask → Analysis → Report
-```
-Medical imaging analysis with region masking.
-
-## Advanced Usage
-
-### Dynamic Mask Creation
-```javascript
-// Generate circular mask based on image dimensions
-const width = msg.image.width;
-const height = msg.image.height;
-const radius = Math.min(width, height) / 3;
-
-msg.maskType = 'circular';
-msg.maskRadius = radius;
-msg.maskCenter = { x: width/2, y: height/2 };
-```
-
-### Conditional Mask Processing
-```javascript
-// Apply different mask processing based on image type
-if (msg.imageType === 'product') {
-  msg.maskInversion = false;
-  msg.smoothEdges = true;
-  msg.featherAmount = 2;
-} else if (msg.imageType === 'portrait') {
-  msg.maskInversion = true; // Vignette mask
-  msg.smoothEdges = true;
-  msg.featherAmount = 5;
-}
-```
-
-### Quality-Based Processing
-```javascript
-// Adjust processing based on output requirements
-if (msg.outputUse === 'web') {
-  msg.outputFormat = 'webp';
-  msg.featherAmount = 1; // Minimal feathering for web
-} else if (msg.outputUse === 'print') {
-  msg.outputFormat = 'png';
-  msg.featherAmount = 3; // More feathering for print
-  msg.smoothEdges = true;
-}
-```
-
-### Batch Mask Application
-```javascript
-// Apply same mask to multiple images
-msg.images.forEach((img, index) => {
-  img.maskSettings = {
-    invert: false,
-    smooth: true,
-    feather: 2
-  };
-});
-```
-
-## Best Practices
-
-### Mask Creation
-- Create masks at same resolution as target images for best quality
-- Use soft brushes or gradients for smooth edge transitions
-- Test masks with sample images before batch processing
-- Save masks as high-quality grayscale or alpha channel images
-
-### Edge Quality
-- Enable smooth edges for professional results
-- Use appropriate feathering amounts (1-3 pixels for web, 2-5 for print)
-- Consider anti-aliasing requirements for your final output
-- Test edge quality at actual display size
-
-### Format Selection
-- **PNG**: Best for transparency preservation and quality
-- **WebP**: Good compression with transparency support
-- **Raw**: For continued processing chains
-- **Avoid JPEG**: For images requiring transparency
-
-### Performance Optimization
-- Use appropriately sized masks (don't oversample)
-- Process masks separately from color correction when possible
-- Use raw format for processing chains
-- Consider memory usage with large high-resolution images
-
-### Quality Considerations
-- Match mask resolution to target image resolution
-- Use high-quality source masks without compression artifacts
-- Test transparency results in final display context
-- Consider edge quality requirements for intended use
-
-### Production Workflow
-- Maintain original images before masking
-- Create standardized mask templates for consistent results
-- Implement quality checks for edge smoothness
-- Document mask settings for reproducible results
+- **Solution**: Increase Mask Strength or choose a Fill Color that contrasts with the image

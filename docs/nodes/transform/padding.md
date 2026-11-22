@@ -17,7 +17,7 @@ head:
 
 ## Purpose & Use Cases
 
-The `padding` node adds margins around images with configurable colors and dimensions. It expands the canvas size while preserving the original image content, perfect for creating borders, standardizing dimensions, or preparing images for specific layouts.
+The `padding` node adds a margin of a solid colour on each side of an image, or of every image of an array. The canvas grows by the margins and the original pixels are kept as they are.
 
 **Real-World Applications:**
 - **Social Media Formatting**: Add borders for consistent post dimensions
@@ -31,65 +31,56 @@ The `padding` node adds margins around images with configurable colors and dimen
 ## Input/Output Specification
 
 ### Inputs
-- **Single Image**: Standard image object format
-- **Image Array**: Array of image objects for batch padding
-- **Dynamic Values**: Padding dimensions can be provided via message properties
+- **Single Image**: a raw image object, or an encoded JPEG/PNG/WebP/BMP `Buffer` (decoded by the addon)
+- **Image Array**: an array of images, padded in parallel with the same margins; the output is an array in the same order
+- **Dynamic Values**: each margin can be read from `msg`, `flow` or `global`
 
 ### Outputs
-- **Padded Image**: Original image with added margins
-- **Expanded Dimensions**: Canvas size increased by padding amounts
-- **Format Options**: Raw image object or encoded file formats
+One output, written to **Output** (`msg.payload` by default):
+- **Padded Image**: a raw image object of `width + left + right` by `height + top + bottom` pixels, or an encoded `Buffer` (JPEG/PNG/WebP)
+- `msg.performance.rpimage.<key>`: `{ conversion, task, total }` in milliseconds
 
 ## Configuration Options
 
-### Input/Output Paths
-- **Input From**: `msg.payload` (default), `flow.*`, `global.*`
-- **Output To**: `msg.payload` (default), `flow.*`, `global.*`
+| Property | Default | Meaning |
+|----------|---------|---------|
+| Name | empty | Label of the node; also the key of its timings in `msg.performance.rpimage` |
+| Input | `msg.payload` | Where the image or array is read (`msg`, `flow` or `global`) |
+| Output | `msg.payload` | Where the result is written (`msg`, `flow` or `global`) |
+| Output Format | Raw (fastest) | Raw (fastest), JPEG, PNG or WebP, with Quality (`90`), PNG Optimize and the WebP options as in [resize](./resize.md#output-format-options) |
+| Debug / Debug Width | off / `200` | **Show processed image** under the node in the editor (the first image of an array) |
+| Top | `0` | Margin above the image, in pixels |
+| Bottom | `0` | Margin below the image, in pixels |
+| Left | `0` | Margin on the left, in pixels |
+| Right | `0` | Margin on the right, in pixels |
+| Colour | `#000000` | Colour of the margins |
+| Inference | off | Under **Advanced options**: **Transform inference coordinates**, with **Inf. Input** and **Inf. Output** (both `msg.inference`) |
 
 ### Padding Dimensions
-
-#### Top Padding
-- **Type**: Pixels (integer)
-- **Sources**: Number, `msg.*`, `flow.*`, `global.*`
-- **Effect**: Adds space above the image
-
-#### Right Padding
-- **Type**: Pixels (integer)  
-- **Sources**: Number, `msg.*`, `flow.*`, `global.*`
-- **Effect**: Adds space to the right of the image
-
-#### Bottom Padding
-- **Type**: Pixels (integer)
-- **Sources**: Number, `msg.*`, `flow.*`, `global.*`
-- **Effect**: Adds space below the image
-
-#### Left Padding
-- **Type**: Pixels (integer)
-- **Sources**: Number, `msg.*`, `flow.*`, `global.*`
-- **Effect**: Adds space to the left of the image
+- **Values**: whole pixels; decimals are truncated and an empty value means 0. Negative values are not supported (OpenCV rejects them and the node reports the error)
+- **Sources**: Number, `msg.*`, `flow.*`, `global.*`. A value that is not a number fails with `Value "..." from property "..." is not a valid number.`
 
 ### Color Configuration
-
-#### Padding Color
-- **Formats Supported**:
-  - RGB: `rgb(255,0,0)`, `rgb(255,255,255)`
-- **Default**: Black
+- **Colour**: picked with the editor's colour picker (`#RRGGBB`); default black
+- **Images with alpha** (RGBA, BGRA): the margins are transparent; their colour channels hold the pad colour
 
 ### Output Format Options
-- **Raw**: Standard image object (fastest for processing chains)
-- **JPEG**: Compressed (note: transparency becomes white)
-- **PNG**: Lossless with full transparency support
-- **WebP**: Modern format with transparency support
+- **Raw**: Standard image object (fastest between image nodes)
+- **JPEG**: Compressed; the alpha channel is dropped, so transparent margins show the pad colour
+- **PNG**: Lossless, keeps the alpha channel
+- **WebP**: Keeps the alpha channel
+
+### Inference
+With **Transform inference coordinates** checked, the normalized coordinates of the detections and segmentations read from **Inf. Input** are recomputed for the larger canvas (measured on the first input image) and written to **Inf. Output**. Bitmap masks are padded too.
+
+## Status and Errors
+
+- **Success**: green dot `OK: <n> img in <t> ms (conv <c> ms | task <k> ms)`, plus the preview format with Debug on
+- **Failure**: `msg.error` is set, the input is written back to **Output**, a warning is logged, the status shows a red ring `Error: <first 30 characters>` and the message is still sent
 
 ## Performance Notes
 
-### C++ Backend Processing  
-- **Efficient Canvas Expansion**: Optimized memory allocation for padded dimensions
-- **Color Fill**: Fast uniform color filling using OpenCV
-- **Memory Management**: Minimal memory overhead for padding operations
-- **Batch Processing**: Array inputs processed in parallel
-
-### Dimension Calculations
+- The margins are added with `cv::copyMakeBorder` in the native addon, on the libuv thread pool; the images of an array are processed concurrently
 - **New Width**: Original width + left padding + right padding
 - **New Height**: Original height + top padding + bottom padding
 
@@ -128,21 +119,15 @@ Add subtle borders to scanned documents.
 ## Common Issues & Troubleshooting
 
 ### Transparency Issues
-- **Issue**: Transparent padding appears white in JPEG
-- **Solution**: Use PNG or WebP format for transparency support
-- **Workaround**: Match padding color to expected background
+- **Issue**: Margins of an RGBA image are transparent instead of coloured
+- **Cause**: For images with alpha the margins get alpha 0
+- **Solution**: Convert the image to RGB first ([color-convert](./color-convert.md)), or save as JPEG, which drops the alpha channel
 
 ### Large File Sizes
 - **Issue**: Padding significantly increases file size
 - **Cause**: Expanded canvas dimensions
 - **Solution**: Use appropriate compression settings, consider if padding is necessary
 
-### Color Matching Problems
-- **Issue**: Padding color doesn't match expected appearance  
-- **Solution**: Use exact color specifications (RGB codes)
-- **Testing**: Use debug mode to verify color appearance
-
 ### Dynamic Dimension Errors
 - **Issue**: Invalid padding values from message properties
-- **Solution**: Validate that dynamic sources contain positive integers
-- **Safety**: Add bounds checking in upstream nodes
+- **Solution**: Make sure the dynamic sources hold zero or positive numbers
