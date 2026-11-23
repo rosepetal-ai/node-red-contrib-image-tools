@@ -1,3 +1,18 @@
+---
+title: "Image-In Node - Load Image Files"
+description: "Load an image file from disk into the raw image object used by the other image nodes, with a fixed or a dynamic file path. Part of @rosepetal/node-red-contrib-image-tools."
+head:
+  - - meta
+    - name: "keywords"
+      content: "node-red, image-in, load image, read image file, jpeg, png, webp, bmp, sharp, rosepetal"
+  - - meta
+    - property: "og:title"
+      content: "Image-In Node - @rosepetal/node-red-contrib-image-tools"
+  - - meta
+    - property: "og:description"
+      content: "Load an image file from disk into the raw image object used by the other image nodes, with a fixed or a dynamic file path."
+---
+
 # Image-In Node
 
 ## Purpose & Use Cases
@@ -15,61 +30,61 @@ The `image-in` node is the primary entry point for loading images from the files
 ## Input/Output Specification
 
 ### Inputs
-- (any): Input message that triggers the node (content ignored)
+- Any message triggers the node. Its content is only used when **File Path** or **Debug Width** is read from a `msg` property.
 
 ### Outputs
-The node outputs a standardized image object to the configured location:
+One output. The node writes the decoded image to **Output to** (`msg.payload` by default) and sends the message:
 
 ```javascript
 {
-  data: Buffer,        // Raw pixel data  
+  data: Buffer,        // Raw pixel data, row by row
   width: number,       // Image width in pixels
   height: number,      // Image height in pixels
-  channels: number,    // Channel count (1, 3, 4)
-  colorSpace: string,  // "GRAY", "RGB", "RGBA", ...
-  dtype: string        // "uint8" (standard)
+  channels: number,    // 1, 3 or 4
+  colorSpace: string,  // "GRAY", "RGB" or "RGBA", from the channel count
+  dtype: "uint8"
 }
 ```
 
+When **Output to** is a `flow` or `global` key, the image is stored there and the message is sent unchanged.
+
 ## Configuration Options
 
-### File Path
-- **Type**: String | msg | flow | global (required)
-- **Description**: Path to the image file on the server filesystem
-- **Options**:
-  - **String**: Static absolute or relative path (e.g., `/home/user/photos/image.jpg`)
-  - **msg.***: Dynamic path from message properties (e.g., `msg.imagePath`)
-  - **flow.***: Dynamic path from flow context (e.g., `flow.currentImageFile`)
-  - **global.***: Dynamic path from global context (e.g., `global.basePath`)
-- **Supported Formats**: All formats supported by Sharp (JPEG, PNG, WebP, ...)
+| Property | Default | Meaning |
+|----------|---------|---------|
+| Name | empty | Label of the node in the editor |
+| File Path | empty (required) | Path of the image file on the Node-RED host: a fixed string, or read from `msg`, `flow` or `global` |
+| Output to | `msg.payload` | Where the image object is written: a `msg` property or a `flow` / `global` key |
+| Debug | off | **Show loaded image**: shows a preview of the image under the node in the editor |
+| Debug Width | `200` | Width of the preview in pixels: a number, or read from `msg`, `flow` or `global` |
 
-### Output Location
-- **Default**: `msg.payload`
-- **Options**: 
-  - `msg.*` - Store in message property
-  - `flow.*` - Store in flow context 
-  - `global.*` - Store in global context
-- **Use Case**: Choose based on how you want to access the image downstream
+### File Path
+- **Fixed path**: an absolute path, or a path relative to the working directory of the Node-RED process (e.g., `/home/user/photos/image.jpg`)
+- **Dynamic path**: for example `msg.imagePath` or `flow.currentImageFile`
+- **Formats**: BMP files are decoded by the native OpenCV addon; every other file is decoded by `sharp` (JPEG, PNG, WebP, TIFF, GIF and the other formats it reads). Images with 2 channels (grayscale with alpha) are rejected
 
 ### Debug Options
-- **Show Loaded Image**: Visual preview of loaded image in Node-RED editor
-- **Debug Width**: Preview image width in pixels (default: 200)
-- **Dynamic Width**: Can be resolved from msg, flow, or global context
-- **Interactive**: Preview appears in Node-RED editor with timing information
+- **Show loaded image**: the preview is a JPEG of the loaded image scaled to **Debug Width**, sent to the editor and drawn under the node
+- The status text gets ` | jpg debug` appended
 
 ## Performance Notes
 
-### Sharp (libvips) Backend Optimization
-- **High-Speed Loading**: Uses Sharp (libvips) for optimized image decoding
-- **Async Processing**: Non-blocking operation with performance timing display
-- **Memory Efficient**: Optimized for large images and batch processing
-- **Metadata Extraction**: Complete image properties extracted during load
+- The file is read with asynchronous file I/O and decoded by `sharp` or by the native addon, off the Node-RED event loop.
+- The node does not record timings in `msg.performance`.
 
 ### Status Display
-The node shows real-time progress and results:
-- **Blue dot**: Reading file
-- **Green dot**: Success with dimensions and timing info
-- **Red ring**: Error with file access or format issues
+- **Blue dot** `reading...`: the file is being read
+- **Green dot** `<width>x<height> to <type>.<path>` (for example `1920x1080 to msg.payload`): the image was loaded
+- **Red ring** `Error`: the file could not be decoded
+
+### Errors
+On every failure the node logs a warning and sends **no** message:
+
+| Warning | Cause |
+|---------|-------|
+| `File path is not configured or resolved.` | **File Path** is empty, or the `msg` / `flow` / `global` value it points to is empty |
+| `Cannot access file: <path>` | The file does not exist or Node-RED cannot read it. The status stays at `reading...` |
+| `Error reading image file: <message>` | The file is not an image `sharp` or OpenCV can decode, or it has an unsupported channel count |
 
 ## Real-World Examples
 
@@ -101,31 +116,25 @@ Enable debug preview to visually verify image loading and dimensions.
 ```
 [Image-In] → [Array-In] → [Array-Out] → [Batch Transform]
 ```
-Collect multiple images into arrays for parallel processing.
+Collect multiple images into an array for the nodes that process arrays. Array-In and Array-Out are part of [`@rosepetal/node-red-contrib-utils`](https://docs.rosepetal.ai/flows/node-red-contrib-utils/nodes/io/array-in).
 
 ## Common Issues & Troubleshooting
 
 ### File Access Problems
-- **Issue**: "Cannot access file" warning
-- **Solution**: Verify file path exists and Node-RED has read permissions
-- **Check**: Use absolute paths to avoid relative path confusion
+- **Issue**: `Cannot access file` warning and no message
+- **Solution**: Verify that the file exists on the Node-RED host and that the Node-RED process can read it
+- **Check**: Use absolute paths; relative paths are resolved from the working directory of Node-RED, not from the user directory
 
 ### Unsupported Format
-- **Issue**: Node fails silently or errors
-- **Solution**: Ensure file is in supported format (JPEG, PNG, WebP, BMP)
-- **Check**: Verify file isn't corrupted using image viewer
-
-### Memory Issues
-- **Issue**: Large images cause performance problems
-- **Solution**: Process images in batches, consider resizing after load
-- **Optimization**: Use flow/global context for sharing large images
+- **Issue**: `Error reading image file: ...` warning and a red `Error` status
+- **Solution**: Use a format `sharp` reads (JPEG, PNG, WebP, TIFF, GIF) or BMP; convert grayscale images with alpha to RGBA or GRAY first
+- **Check**: Verify the file is not corrupted using an image viewer
 
 ### Path Configuration
-- **Static Path**: Set File Path to string type for fixed file locations
-- **Dynamic Path**: Configure File Path from msg, flow, or global context for runtime file selection
-- **Best Practice**: Validate dynamic path sources provide valid file paths
+- **Static Path**: Set File Path to the string type for a fixed file
+- **Dynamic Path**: Read File Path from `msg`, `flow` or `global` to choose the file at runtime
+- **Empty path**: `File path is not configured or resolved.` means the property the path is read from is missing or empty
 
 ### Debug Display Issues
 - **Issue**: Debug preview not appearing
-- **Solution**: Ensure debug checkbox is enabled and Node-RED editor is active
-- **Performance**: Large debug widths may impact editor performance
+- **Solution**: Check the Debug box, deploy, and keep the flow open in the editor

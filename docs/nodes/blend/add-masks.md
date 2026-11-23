@@ -1,26 +1,43 @@
+---
+title: "Add-Masks Node - Polygon Masks Colored by Class"
+description: "Blend several polygon masks over an image in Node-RED, with a color per class name and a global mask strength. Part of @rosepetal/node-red-contrib-image-tools."
+head:
+  - - meta
+    - name: "keywords"
+      content: "node-red, add-masks, polygon masks, segmentation, class colors, object detection, opencv, rosepetal"
+  - - meta
+    - property: "og:title"
+      content: "Add-Masks Node - @rosepetal/node-red-contrib-image-tools"
+  - - meta
+    - property: "og:description"
+      content: "Blend several polygon masks over an image in Node-RED, with a color per class name and a global mask strength."
+---
+
 # add-masks
 
-Applies multiple polygon-based masks to a base image using weighted blending with configurable mask strength and class-based color mapping.
+Applies several polygon or bitmap masks to a base image, each tinted with the colour of its class, with one mask strength for all.
 
 ## Description
 
-The `add-masks` node extends the functionality of `add-mask` to handle multiple masks with automatic color assignment based on class names. It processes arrays of mask objects where each mask can have a different color based on its `class_name` property. Undefined classes can automatically receive randomly generated colors for visual distinction.
+The `add-masks` node extends [add-mask](./add-mask.md) to an array of masks. Each mask carries a class name; classes listed in **Class Color Mappings** get the colour set there, and the others get a colour picked automatically. Where masks overlap, only the mask of the class with the highest priority is painted.
 
-This node is ideal for visualizing object detection results, semantic segmentation, or any scenario where multiple regions need to be highlighted with different colors based on their classification.
+This node is meant for showing segmentation results on the original image.
 
 ## Input Structure
 
-The node consumes an array of mask objects. It now accepts the exact segmentation output produced by the Rosepetal **inferencer** node (no manual conversion required):
+The node reads an array of mask objects. It accepts the segmentation output of the Rosepetal inferencer node directly:
 
-- **Class name**: `tag`, `class_name`, `className`, `label`, or `class`
+- **Class name** (required): `tag`, `class_name`, `className`, `label` or `class` (the first non-empty string)
 - **Geometry** (one of):
   - `polygons`: array of polygons; each polygon is an array of `[x, y]` points in **normalized** coordinates (0‑1)
-  - `mask`: either a raw mask image `{data, width, height, channels, colorSpace, dtype}` (inferencer “mask” format) or a 2D matrix/array-of-matrices with numeric values (0/1 or 0‑255)
-- Any extra fields are ignored. If both `polygons` and `mask` exist, polygons take priority.
+  - `mask`: a mask image `{data, width, height, channels, colorSpace, dtype}`, a 2D matrix of numbers, or an array of 2D matrices (only the first one is drawn)
+- Any extra fields are ignored. If an object has valid `polygons`, they are used and `mask` is ignored.
+
+Mask images and matrices are made binary (any non-zero value is inside the mask; for a 4-channel image the alpha channel is used, for a 3-channel image its gray value; matrix values below 1/255, negative ones included, count as zero) and scaled to the size of the base image with nearest-neighbour interpolation.
 
 **Example (direct inferencer output)**
 ```javascript
-msg.payload = [
+msg.array = [
   {
     tag: "bottle",
     polygons: [[[0.1, 0.1], [0.9, 0.1], [0.9, 0.8], [0.1, 0.8]]]
@@ -30,8 +47,8 @@ msg.payload = [
     mask: {
       width: 512,
       height: 512,
-      channels: 4,
-      colorSpace: "RGBA",
+      channels: 1,
+      colorSpace: "GRAY",
       dtype: "uint8",
       data: <Buffer ...>
     }
@@ -42,53 +59,40 @@ msg.payload = [
 ## Configuration
 
 ### Paths
-- **Image**: Message property path containing the base image (default: `payload.image`)
-- **Masks Array**: Message property path containing the masks array (default: `payload`)
-- **Output**: Message property path for the result (default: `payload`)
+Only `msg` properties are read and written: the editor also offers `flow` and `global`, but the node reads the typed text as a `msg` path.
+- **Image**: the base image, a raw image object or an encoded JPEG/PNG/WebP/BMP `Buffer` (default: `msg.image`)
+- **Masks Array**: the array of masks (default: `msg.array`)
+- **Output**: where the result is written (default: `msg.payload`), with the size and color space of the base image
 
 ### Processing Options
-- **Global Mask Strength**: 0-100% intensity of mask application (default: 50%)
-- **Output Format**: Raw (fastest), JPEG, PNG, or WebP
-- **Quality**: Compression quality for JPEG/WebP (1-100)
+- **Global Mask Strength**: 0-100 % (default 50): inside a mask each pixel becomes image × (100 − strength) / 100 + class colour × strength / 100
+- **Output Format**: Raw (fastest), JPEG, PNG or WebP, with Quality (`90`), PNG Optimize and the WebP options as in [resize](../transform/resize.md#output-format-options)
+- **Debug / Debug Width**: **Show processed image** under the node in the editor (default width 200)
+
+The editor has no Name field for this node, so its timings are recorded under `msg.performance.rpimage.rp_add_masks`.
 
 ### Dynamic Class Color Mapping
 
-The node provides a dynamic interface for managing class-to-color mappings:
+**Class Color Mappings** is a list of class names, each with a colour:
 
-#### Features:
-- **Add/Remove Mappings**: Dynamic addition and removal of class color pairs
-- **Real-time Validation**:
-  - Duplicate class name detection
-  - Similar color warnings (RGB distance < 50)
-- **Visual Feedback**: Color swatches and warning indicators
+1. Click **Add Class Mapping** to create an entry (red by default)
+2. Enter the class name (e.g., "dog") exactly as it appears in the masks
+3. Pick the colour with the colour picker
+4. Remove an entry with its trash button; drag the ☰ handle to reorder
 
-#### Usage:
-1. Click "Add Class Mapping" to create new entries
-2. Enter class name (e.g., "dog", "cat", "zebra")
-3. Select desired color using color picker
-4. Remove unwanted mappings with trash button
+The editor warns about duplicate class names and about colours that are very close to each other.
 
 ## Color Assignment Priority
 
-Colors are assigned using this priority order:
-
-1. **User-defined mapping**: Colors explicitly set in the class color mappings
-2. **Auto-generated**: Seeded random colors (always enabled)
-3. **Default fallback**: White color (#ffffff)
+1. **User-defined mapping**: the colour set in Class Color Mappings
+2. **Automatic**: for other classes, the colour of a fixed palette of 216 colours that differs most from the colours already in use. The colour chosen for a class name is kept for as long as Node-RED runs, so a class keeps its colour from message to message
 
 ## Mask Priority System
 
-When multiple masks overlap on the same pixel, only **one mask is painted** based on priority order.
+When several masks cover the same pixel, only **one mask is painted**:
 
-### Priority Rules
-
-1. **Class Color Mappings Priority**: Classes listed first in the "Class Color Mappings"
-   configuration have higher priority. Drag rows to reorder.
-
-2. **Unmapped Class Tie-breaking**: If neither overlapping mask has a class defined
-   in the mappings, the mask that appears first in the input results array wins.
-
-3. **Mixed Priority**: Mapped classes always take priority over unmapped classes.
+1. Classes listed in Class Color Mappings come first, in the order of the list (top = highest priority).
+2. Unmapped classes come after all mapped classes, in the order of the input array.
 
 ### Example
 
@@ -100,185 +104,59 @@ Class Color Mappings (drag to reorder):
   3. "dog"     → #0000FF (blue)   ← Lowest mapped priority
 ```
 
-If a pixel is covered by both "person" and "car" masks, only the **red (person)**
-color will be painted.
+If a pixel is covered by both "person" and "car" masks, only the **red (person)** colour is painted. If a pixel is covered by "cat" and "bird" (both unmapped), the one appearing first in the input array is painted.
 
-If a pixel is covered by "cat" and "bird" (both unmapped), the one appearing
-first in the input array will be painted.
+## Outputs, Status and Errors
 
-### Reordering Classes
-
-In the Node-RED editor:
-1. Click and drag the ☰ handle next to any class row
-2. Drop it in the desired position
-3. Top = highest priority, bottom = lowest priority
-
-## Processing Flow
-
-1. **Structure Validation**: Validates the nested array structure
-2. **Color Resolution**: Builds color map from configuration and auto-generation
-3. **Mask Generation**: Creates binary masks for each polygon using OpenCV
-4. **Multi-layer Blending**: Applies all masks with proper weight normalization
-5. **Output Encoding**: Converts to specified format with quality settings
+- **Output**: the image with the masks; `msg.performance.rpimage.rp_add_masks`: `{ conversion, task, total }` in milliseconds
+- **Status**: green dot `OK: <n> img in <t> ms (conv <c> ms | task <k> ms)`, where `<n>` is the number of polygons and masks counted in the input (one per polygon, per mask image and per valid matrix, even those that are not drawn)
+- **Empty array**: the base image is written to Output unchanged and the status shows `OK: 0 img ...`
+- **Validation**: the whole message fails if any entry is invalid. The node sets `msg.error` (with `validationError: true`), writes the base image to Output, logs a warning, shows a red ring `Error: <first 30 characters>` and still sends the message. Messages include `Masks input must be an array`, `Base image is invalid or missing`, `Mask at index <i> is missing a valid class/tag field`, `Mask at index <i> must include either 'polygons' or 'mask'`, `Invalid coordinate at index <i>.polygons[<j>][<k>]: coordinates must be in range [0, 1]` and `Invalid mask data at index <i>: expected raw mask image or 2D matrix`
 
 ## Examples
 
-### Basic Object Detection Visualization
+### Segmentation Visualization
 
 **Input:**
 ```javascript
-msg.payload = [
-  {
-    masks: [
-      {
-        mask: [[[0.1,0.1], [0.3,0.1], [0.3,0.3], [0.1,0.3]]],
-        class_name: "dog"
-      },
-      {
-        mask: [[[0.5,0.5], [0.7,0.5], [0.7,0.7], [0.5,0.7]]],
-        class_name: "cat"
-      }
-    ]
-  }
+msg.image = originalImage;
+msg.array = [
+  { tag: "dog", polygons: [[[0.1,0.1], [0.3,0.1], [0.3,0.3], [0.1,0.3]]] },
+  { tag: "cat", polygons: [[[0.5,0.5], [0.7,0.5], [0.7,0.7], [0.5,0.7]]] }
 ];
 ```
 
 **Configuration:**
 - dog → Red (#FF0000)
 - cat → Blue (#0000FF)
-- Global Mask Strength: 70%
+- Global Mask Strength: 70
 
-**Result:** Image with red rectangle for dog and blue rectangle for cat
+**Result:** the image with a red square for the dog and a blue square for the cat.
 
-### Semantic Segmentation with Auto-Colors
+### Many Classes with Automatic Colours
 
-**Input:** Multiple elements with various class names
-
-**Configuration:**
-- Only define colors for important classes
-- System automatically generates colors for others
-
-**Result:** Consistent coloring with user-defined colors for key classes and auto-generated colors for others
-
-## Performance Characteristics
-
-### Optimizations
-- **C++ Backend**: OpenCV-powered processing with SIMD optimizations
-- **Batch Processing**: All masks processed in single C++ call
-- **Weight Normalization**: Prevents over-saturation when masks overlap
-- **Memory Efficiency**: Reuses intermediate buffers across masks
-
-### Timing Breakdown
-Status displays show detailed timing:
-- **Convert**: Time for input validation and format conversion
-- **Task**: Time for mask generation and blending in C++
-- **Encode**: Time for output format encoding (if not raw)
-
-## Error Handling
-
-### Input Validation
-- **Structure validation**: Comprehensive checking of nested array format
-- **Coordinate validation**: Ensures normalized range (0-1) for all coordinates
-- **Class name validation**: Checks for non-empty string class names
-- **Missing mask[0]**: Specific error for missing coordinate arrays
-
-### Visual Feedback
-- **Duplicate class warnings**: Real-time detection of duplicate class names
-- **Color conflict warnings**: Alerts for visually similar colors
-- **Processing status**: Shows number of masks processed and timing
-
-## Advanced Features
-
-### HSV-Based Color Generation
-Auto-generated colors use HSV color space for better visual distinction:
-- **Seeded randomization**: Consistent colors based on class name hash
-- **Optimal distribution**: 70-100% saturation and value for vibrant colors
-- **Visual separation**: Automatic spacing for distinguishable colors
-
-### Multi-mask Blending Algorithm
-```
-For each mask:
-  1. Generate binary mask from polygon coordinates
-  2. Apply mask strength weighting
-  3. Accumulate color contributions and total weights
-
-Final blending:
-  result = image × (1 - total_weights) + normalized_mask_colors
-```
-
-### Overlap Handling
-When masks overlap, the **highest priority mask wins** and paints the pixel:
-- Priority determined by order in Class Color Mappings (first = highest)
-- Unmapped classes have lower priority than mapped classes
-- Among unmapped classes, input array order determines priority
-- Alpha blending still applies: `result = original × (1 - strength) + mask_color × strength`
-
-## Integration Patterns
-
-### With Object Detection Models
-```javascript
-// Convert model output to expected format
-const masks = detectionResults.map(detection => ({
-  masks: [{
-    mask: [detection.polygon],
-    class_name: detection.class
-  }]
-}));
-
-msg.payload = masks;
-```
-
-### With Semantic Segmentation
-```javascript
-// Process segmentation masks
-const masks = segmentationRegions.map(region => ({
-  masks: [{
-    mask: [region.contour],
-    class_name: region.label
-  }]
-}));
-```
-
-### Chaining with Other Nodes
-- **Upstream**: Works with `cropBB`, AI model outputs, or manual annotation tools
-- **Downstream**: Connect to `image-out`, display components, or further processing
-- **Flow integration**: Supports flow and global context for color persistence
+Define colours only for the classes that matter; the others get distinct automatic colours and are painted below the mapped classes where they overlap.
 
 ## Troubleshooting
 
-### Common Issues
+**"Mask at index 0 is missing a valid class/tag field"**
+- Every mask object needs a non-empty `tag`, `class_name`, `className`, `label` or `class`
 
-**"Invalid element structure"**
-- Check that each array element has `masks` property
-- Ensure `masks` is an array, not an object
+**"Invalid coordinate ... coordinates must be in range [0, 1]"**
+- Polygons must be normalized; divide pixel coordinates by the image width and height first
 
-**"Missing mask[0]"**
-- Verify that coordinates are in `mask[0]`, not directly in `mask`
-- Check that `mask` array is not empty
+**"Masks input must be an array"**
+- Point **Masks Array** at the array itself (default `msg.array`), not at the object that contains it
 
-**"Coordinates out of range"**
-- Ensure all coordinates are normalized (0.0-1.0)
-- Convert pixel coordinates to normalized before input
-
-**"Duplicate class warnings"**
-- Review class mappings for exact duplicates
-- Consider using more specific class names
+**Colours change after a restart**
+- Automatic colours depend on the order in which classes first appear; map the important classes to fixed colours
 
 ### Performance Tips
 - Use raw format for processing chains (fastest)
-- Define colors for frequently used classes to avoid repeated generation
-- Monitor timing display to identify bottlenecks
-- Process smaller images for real-time applications
+- Masks are drawn and blended in the native OpenCV addon, on the libuv thread pool; a mask image of the same size as the base image avoids a resize
 
 ## Node Interactions
 
-### Compatible Nodes
-- **Input sources**: `image-in`, `cropBB`, AI/ML model outputs
-- **Output destinations**: `image-out`, `concat`, display nodes
-- **Processing chains**: Can be chained with other blending nodes
-- **Context sharing**: Supports Node-RED flow and global context
-
-### Flow Patterns
-- **Batch processing**: Process multiple images with same color mapping
-- **Interactive visualization**: Real-time mask overlay for user interfaces
-- **Analysis pipelines**: Combine with other image processing for complex workflows
+- **Input sources**: segmentation models (for example the Rosepetal inferencer), [advanced-mosaic](../mix/advanced-mosaic.md) with **Propagate masks** (its masks carry a `tag` only when the input masks had a class name)
+- **Output destinations**: [image-out](../io/image-out.md), [concat](../mix/concat.md)
+- For boxes instead of masks, use [add-bbs](./add-bbs.md)

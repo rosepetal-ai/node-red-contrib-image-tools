@@ -1,8 +1,23 @@
+---
+title: "Crop Node - Extract Image Regions"
+description: "Extract a rectangular region from images in Node-RED, with normalized (0-1) or pixel coordinates. Part of @rosepetal/node-red-contrib-image-tools."
+head:
+  - - meta
+    - name: "keywords"
+      content: "node-red, crop, region of interest, normalized coordinates, opencv, rosepetal"
+  - - meta
+    - property: "og:title"
+      content: "Crop Node - @rosepetal/node-red-contrib-image-tools"
+  - - meta
+    - property: "og:description"
+      content: "Extract a rectangular region from images in Node-RED, with normalized (0-1) or pixel coordinates."
+---
+
 # Crop Node
 
 ## Purpose & Use Cases
 
-The `crop` node extracts rectangular regions from images with support for both normalized coordinates (0-1) and pixel coordinates. It enables precise region selection for focus areas, object extraction, and image composition.
+The `crop` node extracts one rectangular region from an image, or the same region from every image of an array, given in normalized coordinates (0-1) or in pixels.
 
 **Real-World Applications:**
 - **Object Extraction**: Extract specific objects or regions of interest
@@ -16,73 +31,62 @@ The `crop` node extracts rectangular regions from images with support for both n
 ## Input/Output Specification
 
 ### Inputs
-- **Single Image**: Standard image object format
-- **Image Array**: Array of image objects for batch cropping
-- **Dynamic Coordinates**: Crop parameters can be provided via message properties
+- **Single Image**: a raw image object, or an encoded JPEG/PNG/WebP/BMP `Buffer` (decoded by the addon)
+- **Image Array**: an array of images, cropped in parallel with the same region; the output is an array in the same order
+- **Dynamic Coordinates**: each coordinate can be read from `msg`, `flow` or `global`
 
 ### Outputs
-- **Cropped Image**: Extracted rectangular region as image object
-- **Format Options**: Raw image object or encoded file formats (JPEG/PNG/WebP)
+One output, written to **Output to** (`msg.payload` by default):
+- **Cropped Image**: the region as a raw image object, or an encoded `Buffer` (JPEG/PNG/WebP)
+- `msg.performance.rpimage.<key>`: `{ conversion, task, total }` in milliseconds
 
 ## Configuration Options
 
-### Input/Output Paths
-- **Input From**: `msg.payload` (default), `flow.*`, `global.*`
-- **Output To**: `msg.payload` (default), `flow.*`, `global.*`
+| Property | Default | Meaning |
+|----------|---------|---------|
+| Name | empty | Label of the node; also the key of its timings in `msg.performance.rpimage` |
+| Input from | `msg.payload` | Where the image or array is read (`msg`, `flow` or `global`) |
+| Output to | `msg.payload` | Where the result is written (`msg`, `flow` or `global`) |
+| Output Format | Raw (fastest) | Raw (fastest), JPEG, PNG or WebP, with Quality (`90`), PNG Optimize and the WebP options as in [resize](./resize.md#output-format-options) |
+| Debug / Debug Width | off / `200` | **Show processed image** under the node in the editor (the first image of an array) |
+| Normalised | checked | Coordinates as fractions of the image size (0-1); unchecked, in pixels |
+| X Position | `0` | Left edge of the region |
+| Y Position | `0` | Top edge of the region |
+| Width | `1` | Width of the region |
+| Height | `1` | Height of the region |
+| Inference | off | Under **Advanced options**: **Transform inference coordinates**, with **Inf. Input** and **Inf. Output** (both `msg.inference`) |
+
+The defaults (0, 0, 1, 1, normalised) select the whole image.
 
 ### Coordinate System
-- **Normalized Coordinates**: Toggle between 0-1 range and pixel coordinates
-- **Normalized Mode**: Values from 0.0 to 1.0 (relative to image dimensions)
-- **Pixel Mode**: Absolute pixel coordinates
+- **Normalised (checked)**: values from 0.0 to 1.0, multiplied by the width or height of each image and rounded to whole pixels
+- **Pixels (unchecked)**: absolute pixel values, rounded to whole pixels
 
 ### Crop Parameters
+X Position, Y Position, Width and Height each take a number or a `msg`, `flow` or `global` property. A value that is not a number fails with `Value "..." from property "..." is not a valid number.`
 
-#### X Position (cropX)
-- **Normalized**: 0.0 (left edge) to 1.0 (right edge)
-- **Pixel**: 0 to image width
-- **Sources**: Number, `msg.*`, `flow.*`, `global.*`
+**Bounds**: the region is clamped to the image. X and Y are limited to the image, and Width and Height to at least 1 pixel and at most what remains to the right and below. A region that reaches past the right or bottom edge is cut at that edge; a negative X or Y is raised to 0 without shortening the width or height, and a region that starts beyond the image becomes a 1-pixel strip at its edge; an empty or zero width or height gives a region 1 pixel wide or high. No warning is logged.
 
-#### Y Position (cropY)
-- **Normalized**: 0.0 (top edge) to 1.0 (bottom edge)
-- **Pixel**: 0 to image height
-- **Sources**: Number, `msg.*`, `flow.*`, `global.*`
+### Inference
+With **Transform inference coordinates** checked, the detections and segmentations read from **Inf. Input** are mapped into the cropped region (measured on the first input image) and written to **Inf. Output**. Coordinates are clipped to the crop; a detection whose box overlaps the crop by less than 10 % of its area is dropped. Segmentations are not filtered by overlap: their polygon points are clipped to the crop edge, and only a polygon with fewer than 3 points is removed. Bitmap masks are cropped too.
 
-#### Width
-- **Normalized**: 0.0 to 1.0 (proportion of image width)
-- **Pixel**: Absolute width in pixels
-- **Sources**: Number, `msg.*`, `flow.*`, `global.*`
+## Status and Errors
 
-#### Height
-- **Normalized**: 0.0 to 1.0 (proportion of image height)
-- **Pixel**: Absolute height in pixels
-- **Sources**: Number, `msg.*`, `flow.*`, `global.*`
-
-### Output Format Options
-- **Raw**: Standard image object (fastest)
-- **JPEG**: Compressed with quality control (1-100)
-- **PNG**: Lossless compression with optional optimization
-- **WebP**: Modern format with quality control
+- **Success**: green dot `OK: <n> img in <t> ms (conv <c> ms | task <k> ms)`, plus the preview format with Debug on
+- **Failure**: `msg.error` is set, the input is written back to **Output to**, a warning is logged, the status shows a red ring `Error: <first 30 characters>` and the message is still sent
 
 ## Performance Notes
 
-### C++ Backend Processing
-- **High-Speed Extraction**: Optimized OpenCV-based region extraction
-- **Memory Efficient**: Direct memory copy without full image processing
-- **Bounds Checking**: Automatic coordinate validation and clipping
-- **Parallel Processing**: Array inputs processed concurrently
-
-### Coordinate Validation
-- **Bounds Clipping**: Coordinates automatically clipped to image boundaries
-- **Error Handling**: Invalid regions logged with graceful fallback
-- **Status Display**: Processing time and result dimensions shown
+- The crop and the encoding run in the native OpenCV addon on the libuv thread pool
+- The region is copied once from the input image; the images of an array are cropped concurrently
 
 ## Real-World Examples
 
 ### Face Extraction (Normalized)
 ```
-[Face Detection] → [Set msg.faceBox] → [Crop: X=msg.x, Y=msg.y, W=msg.w, H=msg.h] → [Face Image]
+[Face Detection] → [Change: msg.x, msg.y, msg.w, msg.h] → [Crop: X=msg.x, Y=msg.y, Width=msg.w, Height=msg.h] → [Face Image]
 ```
-Extract detected faces using normalized coordinates from AI detection.
+Extract a detected face using normalized coordinates from a detector. To extract every box of a detection result at once, use [cropBB](../specialized/cropBB.md).
 
 ### Center Crop
 ```
@@ -100,7 +104,7 @@ Extract specific document regions using pixel coordinates.
 ```
 [Product Photos] → [Array-Out] → [Crop: Normalized] → [Product Cutouts]
 ```
-Extract product regions from multiple photos.
+Extract the same region from every photo of an array. Array-Out is part of [`@rosepetal/node-red-contrib-utils`](https://docs.rosepetal.ai/flows/node-red-contrib-utils/nodes/io/array-out).
 
 ### Dynamic ROI Extraction
 ```
@@ -111,22 +115,16 @@ Extract regions based on image analysis results.
 ## Common Issues & Troubleshooting
 
 ### Coordinate System Confusion
-- **Issue**: Unexpected crop results
-- **Solution**: Verify normalized vs pixel mode matches your coordinate system
+- **Issue**: The output is a single pixel, or the whole image
+- **Solution**: Check **Normalised**: with it checked, values above 1 reach past the image and are clamped; with it unchecked, values such as 0.5 round to 0 or 1 pixel
 - **Normalized**: Use 0-1 values for relative positioning
 - **Pixel**: Use absolute coordinates
 
 ### Out of Bounds Cropping
 - **Issue**: Crop region extends beyond image boundaries
-- **Result**: Automatic clipping to image bounds with warning
+- **Result**: The region is clamped to the image without a warning, so the output is smaller than requested, or shifted when X or Y is negative
 - **Prevention**: Validate coordinates before processing
 
-### Empty Crop Results
-- **Issue**: Crop width or height is zero or negative
-- **Result**: Warning logged, original image passed through
-- **Solution**: Ensure width and height are positive values
-
 ### Dynamic Coordinate Errors
-- **Issue**: Message properties don't contain valid coordinates
-- **Solution**: Use debug nodes to verify coordinate values
-- **Validation**: Check that dynamic sources provide numbers
+- **Issue**: `Value "..." from property "..." is not a valid number.` in `msg.error`
+- **Solution**: Use debug nodes to verify that the `msg`, `flow` or `global` property exists and holds a number

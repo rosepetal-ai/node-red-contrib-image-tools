@@ -1,248 +1,132 @@
+---
+title: "Blend Node - Combine Two Images"
+description: "Blend two images in Node-RED with an adjustable opacity, with optional alpha compositing and background color removal. Part of @rosepetal/node-red-contrib-image-tools."
+head:
+  - - meta
+    - name: "keywords"
+      content: "node-red, blend, opacity, alpha compositing, overlay, watermark, background removal, opencv, rosepetal"
+  - - meta
+    - property: "og:title"
+      content: "Blend Node - @rosepetal/node-red-contrib-image-tools"
+  - - meta
+    - property: "og:description"
+      content: "Blend two images in Node-RED with an adjustable opacity, with optional alpha compositing and background color removal."
+---
+
 # Blend Node
 
 ## Purpose & Use Cases
 
-The `blend` node combines two images using alpha blending techniques, allowing for sophisticated image compositing with adjustable opacity and advanced blending options. It supports transparent overlays, background removal, and color-based compositing.
+The `blend` node combines two images into one. In the default mode it mixes them with a weight (a cross-fade); with **Alpha Compositing** it lays Image 2 over Image 1 using the alpha channel of Image 2, and can first make one background colour of Image 2 transparent.
 
 **Real-World Applications:**
-- **Watermark Application**: Add semi-transparent logos or watermarks to photos
-- **Background Replacement**: Composite subjects onto new backgrounds with proper edge blending
-- **Artistic Effects**: Create double exposures and artistic blended compositions
-- **Product Photography**: Combine product shots with environmental backgrounds
-- **UI/UX Design**: Create layered interface elements with transparency effects
-
-*[PLACEHOLDER - Add GIF showing various blending operations including opacity, transparency, and color removal]*
+- **Watermark Application**: Lay a semi-transparent logo (with alpha) over photos
+- **Background Replacement**: Remove a uniform background colour from a subject and lay it over a new background
+- **Before/After Overlays**: Cross-fade an image with its processed version
+- **Visual Inspection**: Overlay a heat map or mask image on the original
 
 ## Input/Output Specification
 
 ### Inputs
-- **Base Image**: Background or primary image (usually from `msg.payload.image1`)
-- **Overlay Image**: Foreground or secondary image (usually from `msg.payload.image2`)
-- **Blend Parameters**: Opacity and compositing settings via configuration or message properties
+- **Image 1**: the base image, read from `msg.payload.image1` by default
+- **Image 2**: the overlay image, read from `msg.payload.image2` by default
+- Each is a raw image object or an encoded JPEG/PNG/WebP/BMP `Buffer`. Only `msg` properties are read: the editor also offers `flow` and `global`, but the node reads the typed text as a `msg` path.
 
 ### Outputs
-- **Blended Image**: Composite result of blending both input images
-- **Preserved Dimensions**: Output maintains base image dimensions
-- **Format Options**: Raw image object or encoded file formats
+One output:
+- **Blended Image**: written to the `msg` property **Output** (`msg.payload` by default) as a raw image object or an encoded `Buffer` (JPEG/PNG/WebP)
+- **Dimensions**: when the images differ in size, both are scaled (without keeping the aspect ratio) to the largest width and the largest height of the two
+- `msg.performance.rpimage.<key>`: `{ conversion, task, total }` in milliseconds
 
 ## Configuration Options
 
-### Input Paths
-- **Image 1 Path**: Location of base/background image (default: `msg.payload.image1`)
-- **Image 2 Path**: Location of overlay/foreground image (default: `msg.payload.image2`)
-- **Path Sources**: `msg.*`, `flow.*`, `global.*`
+| Property | Default | Meaning |
+|----------|---------|---------|
+| Image 1 | `msg.payload.image1` | Base image |
+| Image 2 | `msg.payload.image2` | Overlay image |
+| Output | `msg.payload` | Where the result is written |
+| Output Format | Raw (fastest) | Raw (fastest), JPEG, PNG or WebP, with Quality (`90`), PNG Optimize and the WebP options as in [resize](../transform/resize.md#output-format-options) |
+| Debug / Debug Width | off / `200` | **Show processed image** under the node in the editor |
+| Alpha Compositing | off | **Use Image 1 as base layer**: lay Image 2 over Image 1 with its alpha channel |
+| Background Removal | off | *Alpha Compositing only.* **Remove background from overlay image** |
+| Background Color | `#ffffff` | *Background Removal only.* The colour made transparent in Image 2 |
+| Color Tolerance | `10` | *Background Removal only.* 0-100 %: how far a pixel's colour may be from Background Color to be removed |
+| Opacity | `50` | 0-100 %: see below |
 
-### Output Configuration
-- **Output Path**: Where to store blended result (default: `msg.payload`)
-- **Output Format**: Raw, JPEG, PNG, or WebP
-- **Quality Settings**: Compression quality for lossy formats
+The editor has no Name field for this node, so its timings are recorded under `msg.performance.rpimage.rp_blend`.
 
-### Blending Parameters
+An **Opacity** or **Color Tolerance** of 0 is read as the default (50 and 10): use 1 for the lowest value.
 
-#### Opacity Control
-- **Range**: 0-100% (0 = invisible overlay, 100 = opaque overlay)
-- **Default**: 50% for balanced blending
-- **Use Cases**: Watermarks (10-30%), artistic effects (40-70%), overlays (80-95%)
+### Blending Modes
 
-#### Advanced Blending Options
+#### Weighted Blend (Alpha Compositing off)
+- **Result**: Image 1 × Opacity + Image 2 × (100 − Opacity). At 100 only Image 1 is visible; at 50 both count the same
+- **Color space**: both images are converted to the one with the most channels (RGBA, then BGRA, RGB, BGR and GRAY)
 
-##### Alpha Compositing
-- **Enable/Disable**: Use alpha channel information for proper transparency handling
-- **Benefit**: Preserves transparency in PNG images and handles edge feathering
-- **Use Case**: Professional compositing with transparent overlays
+#### Alpha Compositing
+- **Result**: Image 2 over Image 1 ("over" operator), with the alpha of Image 2 multiplied by Opacity. At 100 the overlay is fully applied; low values make it fainter
+- **Output**: always 4 channels (`BGRA`). Images without alpha count as opaque, so an RGB overlay at Opacity 100 covers the base completely
 
-##### Background Removal
-- **Enable/Disable**: Remove specific background colors from overlay image
-- **Background Color**: Color to remove (hex, RGB, or named color)
-- **Color Tolerance**: How closely colors must match for removal (0-100%)
-- **Use Case**: Green screen compositing, product photography
+#### Background Removal
+- **Operation**: pixels of Image 2 whose hue, saturation and value are all within Color Tolerance of Background Color become transparent, with a slight blur of the mask edge (above 1 % tolerance). The existing alpha channel of Image 2 is replaced
+- **Note**: the current version swaps the red and blue components of Background Color before matching. White, black, grays, pure green and magenta are matched as expected; for other colours, enter the colour with red and blue exchanged
 
 ### Output Format Options
-- **Raw**: Standard image object (fastest for processing chains)
-- **JPEG**: Compressed (transparency flattened to white)
-- **PNG**: Full transparency preservation
-- **WebP**: Modern format with transparency and compression
+- **Raw**: Standard image object (fastest between image nodes)
+- **JPEG**: Compressed; the alpha channel is dropped
+- **PNG**: Lossless, keeps the alpha channel
+- **WebP**: Keeps the alpha channel
+
+## Status and Errors
+
+- **Success**: green dot `OK: 1 img in <t> ms (conv <c> ms | task <k> ms)`, plus the preview format with Debug on
+- **Failure**: `msg.error` is set, Image 1 is written to **Output**, a warning is logged, the status shows a red ring `Error: <first 30 characters>` and the message is still sent. Missing or invalid images give `First image is invalid or missing` or `Second image is invalid or missing`
 
 ## Performance Notes
 
-### C++ Backend Processing
-- **Optimized Alpha Blending**: Hardware-accelerated blending algorithms
-- **Color Space Handling**: Proper color space management for accurate blending
-- **Memory Efficient**: In-place blending operations where possible
-- **Edge Handling**: High-quality edge processing for smooth compositing
-
-### Image Requirements
-- **Dimension Handling**: Overlay automatically scaled/positioned to match base image
-- **Color Space**: Both images converted to compatible color spaces for blending
-- **Alpha Channel**: Proper alpha channel handling for transparency effects
+- Conversion, scaling, background removal and blending run in one call to the native OpenCV addon, on the libuv thread pool
 
 ## Real-World Examples
 
 ### Watermark Application
 ```
-[Photo] → [Set as image1] ┐
-[Logo] → [Set as image2]  ├→ [Blend: 20% opacity] → [Watermarked Photo]
+[Function: msg.payload = { image1: photo, image2: logo }] → [Blend: Alpha Compositing, Opacity 30] → [Watermarked Photo]
 ```
-Add semi-transparent watermarks to protect image copyrights.
+The logo is scaled to the size of the photo, so it should already be a full-size transparent layer with the logo where it must appear.
 
 ### Background Replacement
 ```
-[Subject Photo] → [Set as image2] ┐
-[New Background] → [Set as image1] ├→ [Blend: Background removal, Green] → [Composite]
+[New Background] → image1 ┐
+[Subject on white] → image2 ├→ [Blend: Alpha Compositing, Background Removal #ffffff, Tolerance 15, Opacity 100] → [Composite]
 ```
-Replace green screen backgrounds with new environments.
+Make the white background of the subject transparent and lay it over the new background.
 
-### Artistic Double Exposure
+### Cross-Fade
 ```
-[Portrait] → [Set as image1] ┐
-[Texture] → [Set as image2] ├→ [Blend: 60% opacity, Alpha compositing] → [Artistic Effect]
+[Original] → image1 ┐
+[Filtered] → image2 ├→ [Blend: Opacity 70] → [70 % original, 30 % filtered]
 ```
-Create artistic double exposure effects.
-
-### Product Lifestyle Shots
-```
-[Product Photo] → [Set as image2] ┐
-[Lifestyle Scene] → [Set as image1] ├→ [Blend: 85% opacity, Alpha] → [Lifestyle Product Shot]
-```
-Composite products into lifestyle environments.
-
-### UI Element Creation
-```
-[Background] → [Set as image1] ┐
-[UI Overlay] → [Set as image2] ├→ [Blend: 90% opacity, Alpha] → [UI Component]
-```
-Create layered interface elements with proper transparency.
 
 ## Common Issues & Troubleshooting
 
-### Color Matching Problems
-- **Issue**: Colors don't blend as expected
-- **Solution**: Ensure both images use compatible color spaces
-- **Check**: Verify image formats and color profiles
+### The Overlay Covers the Base Completely
+- **Issue**: With Alpha Compositing only Image 2 is visible
+- **Cause**: Image 2 has no alpha channel (or it is fully opaque) and Opacity is 100
+- **Solution**: Lower Opacity, use an overlay with alpha, or turn on Background Removal
 
-### Transparency Issues
-- **Issue**: Transparent areas become white or black
-- **Solution**: Enable alpha compositing and use PNG output format
-- **Requirement**: Overlay image must have actual alpha channel data
+### Transparency Lost
+- **Issue**: Transparent areas become black or white
+- **Solution**: Use PNG or WebP output; JPEG drops the alpha channel
 
 ### Background Removal Artifacts
 - **Issue**: Incomplete or over-aggressive background removal
-- **Solution**: Adjust color tolerance settings and background color specification
-- **Optimization**: Use high-quality source images with clean backgrounds
+- **Solution**: Adjust Color Tolerance; check the note on red and blue above for coloured backgrounds
 
-### Dimension Mismatches
-- **Issue**: Overlay doesn't align properly with base image
-- **Behavior**: Overlay automatically scaled to match base image dimensions
-- **Control**: Pre-resize images if specific positioning needed
+### Stretched Images
+- **Issue**: One image is distorted
+- **Cause**: Images of different sizes are both scaled to the largest width and height
+- **Solution**: Resize or pad the images to the same size first
 
-### Performance with Large Images
-- **Issue**: Slow blending with high-resolution images
-- **Optimization**: Resize images to appropriate output size before blending
-- **Memory**: Monitor memory usage with very large images
-
-## Integration Patterns
-
-### Watermarking Workflow
-```
-Content Image → Resize → Position Watermark → Blend → Protected Image
-```
-Standard content protection workflow.
-
-### Compositing Pipeline  
-```
-Background → Color Correction → Subject → Background Removal → Blend → Final Composite
-```
-Professional compositing workflow.
-
-### Batch Watermarking
-```
-Image Array → Individual Blending → Watermark Application → Protected Collection
-```
-Process multiple images with consistent watermarking.
-
-### Multi-Layer Composition
-```
-Base → Blend with Layer 1 → Blend with Layer 2 → Blend with Layer 3 → Final Result
-```
-Build complex compositions with multiple layers.
-
-## Advanced Usage
-
-### Dynamic Opacity Based on Content
-```javascript
-// In function node before blend:
-if (msg.imageType === 'portrait') {
-  msg.blendOpacity = 25; // Subtle watermark for portraits
-} else if (msg.imageType === 'landscape') {
-  msg.blendOpacity = 40; // More visible for landscapes
-} else {
-  msg.blendOpacity = 30; // Default opacity
-}
-```
-
-### Smart Background Color Detection
-```javascript
-// Detect and set background removal color
-const dominantColor = msg.backgroundAnalysis.dominantColor;
-msg.backgroundRemovalColor = dominantColor;
-msg.colorTolerance = 15; // Adjust based on background uniformity
-```
-
-### Conditional Alpha Compositing
-```javascript
-// Enable alpha compositing only when overlay has transparency
-if (msg.overlay.channels === 4) { // RGBA
-  msg.useAlphaCompositing = true;
-} else {
-  msg.useAlphaCompositing = false;
-}
-```
-
-### Quality-Based Blending
-```javascript
-// Adjust blend settings based on image quality requirements
-if (msg.outputUse === 'print') {
-  msg.outputFormat = 'png';
-  msg.useAlphaCompositing = true;
-} else if (msg.outputUse === 'web') {
-  msg.outputFormat = 'webp';
-  msg.outputQuality = 85;
-} else {
-  msg.outputFormat = 'raw'; // For further processing
-}
-```
-
-## Best Practices
-
-### Image Preparation
-- Ensure both images are high quality for best blending results
-- Use images with compatible aspect ratios when possible
-- Pre-process images (color correction, sizing) before blending
-
-### Opacity Selection
-- **Watermarks**: 10-30% for subtle protection without distraction
-- **Artistic Effects**: 40-70% for creative double exposures
-- **Overlays**: 80-95% for prominent but layered appearance
-- **Background Replacement**: Variable based on subject transparency
-
-### Transparency Handling
-- Use PNG format when transparency is important
-- Enable alpha compositing for professional results
-- Test transparency appearance in final display context
-
-### Background Removal
-- Use clean, uniform backgrounds for best removal results
-- Start with lower tolerance and increase if needed
-- Consider edge feathering for smoother compositing
-
-### Performance Optimization
-- Resize images to final output dimensions before blending
-- Use raw format for processing chains
-- Monitor memory usage with large images
-- Consider batch processing strategies for multiple images
-
-### Quality Considerations
-- Use appropriate output format for final destination
-- Consider compression settings for web vs. print use
-- Test blending results in intended viewing context
-- Maintain backup of original images before processing
+### Images from Context Are Ignored
+- **Issue**: Image 1 or Image 2 set to `flow` or `global` is not found
+- **Solution**: Copy the image into the message first (Change node); this node reads `msg` properties only

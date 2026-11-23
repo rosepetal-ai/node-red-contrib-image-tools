@@ -1,426 +1,163 @@
-# Image-Align Node (Ultra-Fast Image Alignment)
+---
+title: "Image-Align Node - Align an Image to a Reference"
+description: "Align a target image to a reference image in Node-RED with ECC, with ORB or SIFT features, or with features refined by ECC. Part of @rosepetal/node-red-contrib-image-tools."
+head:
+  - - meta
+    - name: "keywords"
+      content: "node-red, image alignment, image registration, ecc, orb, sift, homography, opencv, rosepetal"
+  - - meta
+    - property: "og:title"
+      content: "Image-Align Node - @rosepetal/node-red-contrib-image-tools"
+  - - meta
+    - property: "og:description"
+      content: "Align a target image to a reference image in Node-RED with ECC, with ORB or SIFT features, or with features refined by ECC."
+---
+
+# Image-Align Node
 
 ## Purpose & Use Cases
 
-The `image-align` node provides ultra-fast image alignment using OpenCV's Enhanced Correlation Coefficient (ECC) algorithm. It aligns a target image to match the position and orientation of a reference image, correcting for translation shifts and minor rotations. This is essential for computer vision workflows requiring precise image registration.
+The `image-align` node moves a target image so that it lines up with a reference image, and returns it in the frame and size of the reference. It finds the transform with ORB or SIFT feature matching, with OpenCV's Enhanced Correlation Coefficient (ECC) algorithm, or with features refined by ECC, for a translation, euclidean, affine or homography motion model. It can also return the transform and move polygons with the image.
 
 **Real-World Applications:**
-- **Medical Imaging**: Align sequential scans or multi-modal medical images for comparison
-- **Quality Control**: Register product images for defect detection and comparison analysis
-- **Surveillance Systems**: Align camera feeds for motion detection and background subtraction
-- **Scientific Imaging**: Register microscopy images, satellite imagery, or astronomical photos
-- **Document Processing**: Align scanned documents for OCR and content analysis
-- **Augmented Reality**: Register camera feeds with reference markers for AR overlay
-- **Time-Lapse Photography**: Stabilize sequences by aligning frames to eliminate camera shake
-
-*[PLACEHOLDER - Add GIF showing before/after alignment of two shifted images]*
+- **Quality Control**: Line up each product image with a golden image before comparing them (for example with [heat-diff](./heat-diff.md))
+- **Region Mapping**: Move polygons found on the target image (for example a detection) to their place on the aligned image
+- **Camera Shake**: Compensate small movements of a fixed camera between captures
+- **Document Processing**: Bring scans of the same form into one frame
 
 ## Input/Output Specification
 
 ### Inputs
-The node expects a message containing two images at configurable paths:
-- **Reference Image**: The target image to align to (template)
-- **Target Image**: The image to be aligned (moved to match reference)
+Only `msg` properties are read and written: the editor also offers `flow` and `global`, but the node reads the typed text as a `msg` path.
 
-### Input Format
-Both images should follow the standard image object format:
-```javascript
-{
-  data: Buffer,        // Raw pixel data
-  width: number,       // Image width in pixels  
-  height: number,      // Image height in pixels
-  channels: number,    // Channel count (1, 3, 4)
-  colorSpace: string,  // "GRAY", "RGB", "RGBA", "BGR", "BGRA"
-  dtype: string        // "uint8" (standard)
-}
-```
+- **Reference Image** (`msg.payload.reference` by default): the image to align to
+- **Target Image** (`msg.payload.target` by default): the image to move
+- Each is a raw image object or an encoded JPEG/PNG/WebP/BMP `Buffer`. Both may also be arrays of the same length: the images are then paired by index and aligned in parallel; **Output to**, `transformMatrix` and the transformed polygons become arrays in the same order, while the other fields of `msg.alignment` stay single values.
+- **Polygon Path** (`msg.payload.polygon` by default, with **Transform polygon coordinates**): one polygon `[[x, y], ...]` or an array of polygons `[[[x, y], ...], ...]`, normalized 0-1, giving positions on the target image
 
 ### Outputs
+One output:
+- **Output to** (`msg.payload` by default): the aligned target, with the width and height of the reference, as a raw image object or an encoded `Buffer` (JPEG/PNG/WebP). The area the target does not cover is black. When the alignment fails, the target is only scaled to the size of the reference.
+- `msg.alignment`:
+
 ```javascript
 {
-  payload: ImageObject,     // Aligned image (target aligned to reference)
-  alignment: {
-    success: boolean,       // Whether alignment succeeded
-    timing: {
-      convertMs: number,    // Image conversion time
-      taskMs: number,       // Alignment processing time
-      encodeMs: number      // Output encoding time (if not raw)
-    },
-    preset: string,         // Alignment preset used
-    transformMatrix: {      // Optional: only when returnMatrix enabled
-      dx: number,           // Horizontal translation in pixels
-      dy: number,           // Vertical translation in pixels
-      matrix2x3: [          // OpenCV 2x3 affine matrix format
-        a, b, dx,           // [a b dx]
-        c, d, dy            // [c d dy] where typically a=d=1, b=c=0 for translation
-      ],
-      matrix3x3: [          // Standard 3x3 homogeneous transformation matrix
-        a, b, dx,           // [a  b  dx]
-        c, d, dy,           // [c  d  dy]
-        0, 0, 1             // [0  0  1 ] (homogeneous coordinates)
-      ],
-      transform: []         // Alias for matrix3x3 (backward compatibility)
-    }
-  }
+  success: true,            // false when no transform was found (for arrays: true only if every pair succeeded)
+  timing: { convertMs, taskMs, encodeMs },
+  preset: "ultra-fast",
+  motionModel: "affine",
+  pipeline: "features+ecc",
+  eccRefine: "always",
+  detector: "orb",
+  transformMatrix: {        // with "Return transformation matrix", when the alignment succeeded
+    dx: 12.4, dy: -3.1,     // translation part, in pixels
+    matrix2x3: [a, b, dx, c, d, dy],
+    matrix3x3: [a, b, dx, c, d, dy, g, h, 1],   // last row 0, 0, 1 except for homography
+    transform: [ ... ],     // same as matrix3x3
+    motionModel: "affine", pipeline: "features+ecc", eccRefine: "always"
+  },
+  originalPolygon: [[0.1, 0.1], ...],      // with "Transform polygon coordinates"
+  transformedPolygon: [[0.12, 0.09], ...], // or transformedPolygons for an array of polygons
+  isPolygonArray: false
 }
 ```
+
+The matrix maps a pixel of the aligned (reference) frame to its position in the target image. The transformed polygons are the input polygons moved to where they lie on the aligned image, clamped to 0-1; they are only present when the alignment succeeded.
+
+- `msg.performance.rpimage.<key>`: `{ conversion, task, total }` in milliseconds
 
 ## Configuration Options
 
-### Input Configuration
-- **Reference Image Path**: Location of reference image (default: `payload.reference`)
-- **Target Image Path**: Location of target image (default: `payload.target`)  
-- **Path Sources**: Support for `msg.*`, `flow.*`, `global.*` contexts
+| Property | Default | Meaning |
+|----------|---------|---------|
+| Name | empty | Label of the node; also the key of its timings in `msg.performance.rpimage` |
+| Reference Image | `msg.payload.reference` | Image to align to |
+| Target Image | `msg.payload.target` | Image to move |
+| Output to | `msg.payload` | Where the aligned image is written |
+| Output Format | Raw (fastest) | Raw (fastest), JPEG, PNG or WebP, with Quality (`90`), PNG Optimize and the WebP options as in [resize](../transform/resize.md#output-format-options) |
+| Debug / Debug Width | off / `200` | **Show aligned image**: a preview of the (first) aligned image under the node in the editor |
+| Transform Matrix | off | **Return transformation matrix** in `msg.alignment.transformMatrix` |
+| Transform Polygon | off | **Transform polygon coordinates** read from Polygon Path |
+| Polygon Path | `msg.payload.polygon` | The polygon(s) to move |
+| Pipeline | Features → ECC refine | **ECC only (intensity)**, **Features only (ORB)** (uses the selected Detector) or **Features → ECC refine** |
+| Detector | ORB (fast, default) | **ORB** or **SIFT (robust, slower)**, for the feature stage |
+| ECC Refine | Always (legacy, accurate) | With Features → ECC refine: **Always**, **Auto (skip when seed is strong)** or **Never (use seed only)** |
+| Motion Model | Affine (6 DoF, +scale+shear) | **Translation (2 DoF)**, **Euclidean (3 DoF, +rotation)**, **Affine (6 DoF, +scale+shear)** or **Homography (8 DoF, +perspective)** |
+| Speed Preset | Ultra Fast | Ultra Fast, Fast, Balanced, Quality or Custom: see below |
+| Scale / Max Iterations / Termination Eps | `0.2` / `10` / `0.1` | *Custom only.* Number, or read from `msg`, `flow` or `global` |
 
-### Output Configuration
-- **Output Path**: Where to store aligned image (default: `payload`)
-- **Output Format**: Raw, JPEG, PNG, or WebP
-- **Output Quality**: Compression quality for JPEG/WebP (1-100, default: 90)
-- **PNG Optimization**: Enable PNG compression optimization
+Nodes saved by versions that had no Motion Model or Pipeline setting run as **Translation** with **ECC only**.
 
-### Alignment Settings
+### Pipelines
+- **ECC only**: intensity-based ECC starting from no movement. Suits small shifts between images of the same scene.
+- **Features only**: up to 800 ORB (or SIFT) keypoints per image, matched and fitted robustly (USAC MAGSAC for affine and homography, RANSAC for translation and euclidean). Handles larger movements; no ECC.
+- **Features → ECC refine**: the feature result is the starting point of ECC. If ECC does not converge, the feature result is used. With **Auto**, ECC is skipped when the feature fit has at least 50 inliers; with **Never**, the feature result is used without ECC. When the feature stage finds no transform, ECC runs from no movement whatever ECC Refine says, so **Never** then differs from Features only, which fails.
 
-#### Speed Presets
-The node offers four carefully tuned presets balancing speed and accuracy:
+Before ECC, both images are converted to grayscale and their brightness and contrast are normalized, so moderate lighting changes are tolerated. ECC counts as converged when its correlation is above 0.1.
 
-**Ultra-Fast (Default)**
-- **Scale**: 0.2 (20% resolution for alignment calculation)
-- **Max Iterations**: 10
-- **Termination Epsilon**: 1e-1
-- **Use Case**: Real-time processing, minor alignment corrections
-- **Processing Time**: ~5-15ms per image pair
+### Speed Presets
+Both stages work on copies of the images scaled by **Scale**; the transform is then scaled back to full resolution.
 
-**Fast**
-- **Scale**: 0.3 (30% resolution)  
-- **Max Iterations**: 20
-- **Termination Epsilon**: 1e-2
-- **Use Case**: Batch processing with moderate accuracy needs
-- **Processing Time**: ~10-25ms per image pair
+| Preset | Scale | Max Iterations | Termination Eps |
+|--------|-------|----------------|-----------------|
+| Ultra Fast | 0.2 | 10 | 0.1 |
+| Fast | 0.3 | 20 | 0.01 |
+| Balanced | 0.5 | 30 | 0.001 |
+| Quality | 0.7 | 50 | 0.0001 |
+| Custom | 0.1 to 1.0 | 1 to 200 | 0.000001 to 0.1 |
 
-**Balanced**
-- **Scale**: 0.5 (50% resolution)
-- **Max Iterations**: 30  
-- **Termination Epsilon**: 1e-3
-- **Use Case**: General purpose alignment with good accuracy
-- **Processing Time**: ~20-50ms per image pair
+Max Iterations and Termination Eps apply to ECC. Custom values outside the ranges are clamped; empty or `0` values fall back to 0.2, 10 and 0.1, and a value that is not a number is an error (`... is not a valid number.`).
 
-**Quality**
-- **Scale**: 0.7 (70% resolution)
-- **Max Iterations**: 50
-- **Termination Epsilon**: 1e-4  
-- **Use Case**: High precision alignment for critical applications
-- **Processing Time**: ~40-100ms per image pair
+### Image Sizes
+For the ECC pipelines, and whenever polygons are transformed, a target of another size is first scaled to the size of the reference. With Features only, the target keeps its size for matching. The aligned image is resampled with nearest-neighbour interpolation.
 
-**Custom**
-- **Scale**: User-defined (0.1-1.0) - Image downscale factor for alignment calculation
-- **Max Iterations**: User-defined (1-200) - Maximum number of ECC iterations
-- **Termination Epsilon**: User-defined (0.000001-0.1) - Convergence threshold
-- **Use Case**: Fine-tuned performance for specific image types or requirements
-- **Processing Time**: Depends on parameters chosen
+## Status and Errors
 
-### Advanced Options
-- **Return Matrix**: Enable transformation matrix output for analysis
-- **Debug Mode**: Enable image preview display for development
-- **Debug Width**: Preview image width (default: 200 pixels)
-
-## Algorithm Details
-
-### Enhanced Correlation Coefficient (ECC)
-The node uses OpenCV's `findTransformECC()` with translation-only motion model for optimal speed:
-
-1. **Preprocessing**: Convert both images to grayscale for alignment calculation
-2. **Downsampling**: Scale images by preset factor for faster processing  
-3. **ECC Registration**: Find optimal translation transformation using iterative ECC algorithm
-4. **Upscaling**: Scale transformation matrix back to full resolution
-5. **Application**: Apply transformation to original color target image
-6. **Output**: Return aligned target image matching reference position
-
-### Motion Model
-- **Translation Only**: Corrects for X/Y shifts (most common alignment need)
-- **Benefits**: Faster processing, more stable than full affine transformation
-- **Limitations**: Cannot correct rotation, scaling, or perspective distortion
-
-### Performance Optimizations
-- **Multi-threaded**: Leverages OpenCV's parallel processing capabilities
-- **Memory Efficient**: Processes images in-place where possible
-- **Adaptive Scaling**: Automatic resolution reduction for speed without quality loss
-- **Early Termination**: Stops iteration when convergence criteria met
+- **Success**: green dot `OK: <n> img in <t> ms (conv <c> ms | task <k> ms)`, where `<n>` is the number of pairs, plus the preview format with Debug on. A failed alignment is not an error: check `msg.alignment.success`
+- **Failure**: `msg.error` is set, the target image (the first one of an array) is written to **Output to**, a warning is logged, the status shows a red ring `Error: <first 30 characters>` and the message is still sent. Messages include `Reference and target must both be single images or both be arrays`, `Image arrays must be non-empty and of equal length (got <a> and <b>)`, `Reference image is invalid or missing` and `Target image is invalid or missing`
+- **Invalid polygons**: a warning such as `Invalid coordinate at index 2: coordinates must be in range [0, 1]`, and the polygon transform is skipped
 
 ## Performance Notes
 
-### C++ Backend Processing
-- **OpenCV ECC**: Professional-grade image registration algorithm
-- **Async Processing**: Non-blocking execution with timing metrics
-- **Memory Management**: Efficient buffer handling between JS/C++ layers
-- **Error Recovery**: Graceful fallback if alignment fails
-
-### Speed Characteristics
-- **Ultra-Fast Preset**: 5-15ms processing time, suitable for real-time workflows
-- **Quality Preset**: 40-100ms processing time for precision alignment
-- **Batch Processing**: Parallel execution support for multiple image pairs
-- **Scalability**: Linear performance scaling with image resolution
-
-### Memory Usage
-- **Temporary Buffers**: ~2-3x source image memory during processing
-- **Optimization**: Automatic cleanup after processing completion
-- **Large Images**: Consider downsampling very large images for speed
+- Alignment and encoding run in the native OpenCV addon on the libuv thread pool; pairs of an array are aligned in parallel
+- Repeated inputs are cached in the addon (scaled grayscale images, prepared ECC images and feature results), which helps the common case of one fixed reference and a new target per message
+- SIFT is slower than ORB; Homography is the most flexible model and the easiest to fit wrongly on images with few features
 
 ## Real-World Examples
 
-### Medical Image Registration
+### Golden-Image Comparison
 ```
-[MRI Scan T1] + [MRI Scan T2] → [Image-Align: quality] → [Registered T2] → [Comparison Analysis]
+[Function: msg.payload = { reference: golden, target: msg.capture }; msg.goldenImage = golden] → [Image-Align: Features → ECC, Affine, Balanced] → [Heat-Diff]
 ```
-Align multi-modal medical images for accurate comparison and analysis.
+Align each capture to a golden image before computing the difference.
 
-### Quality Control System  
+### Region Follows the Image
 ```
-[Reference Product] + [Test Product] → [Image-Align: balanced] → [Aligned Test] → [Defect Detection]
+[Function: set payload.reference, payload.target, payload.polygon] → [Image-Align: Transform polygon coordinates] → [Function: msg.roi = msg.alignment.transformedPolygon] → [Add-Mask: Image msg.payload, Polygon Path msg.roi]
 ```
-Register product images for precise defect detection and quality analysis.
+A region found on the target before alignment is drawn in the right place on the aligned image.
 
-### Surveillance Motion Detection
+### Batch of Stations
 ```
-[Background Reference] + [Current Frame] → [Image-Align: ultra-fast] → [Stabilized Frame] → [Motion Analysis]  
+[Function: payload.reference = [ref1, ref2, ref3]; payload.target = [img1, img2, img3]] → [Image-Align] → [Split]
 ```
-Stabilize camera feeds for accurate motion detection and tracking.
-
-### Document Processing
-```
-[Template Document] + [Scanned Document] → [Image-Align: fast] → [Registered Scan] → [OCR Processing]
-```
-Align scanned documents with templates for improved OCR accuracy.
-
-### Scientific Imaging
-```
-[Reference Microscopy] + [Sample Image] → [Image-Align: quality] → [Registered Sample] → [Analysis Pipeline]
-```  
-Register scientific images for precise measurement and comparison.
+Three camera stations aligned in one message, each to its own reference.
 
 ## Common Issues & Troubleshooting
 
-### Alignment Failures
-- **Issue**: `alignment.success = false` in output
-- **Causes**: Images too different, poor lighting, insufficient features
-- **Solutions**: Try different preset, improve image quality, use more similar reference
+### Alignment Fails (`success: false`)
+- **Cause**: too little texture or overlap, a movement too large for ECC only, or a motion model that cannot describe the movement
+- **Solution**: use **Features → ECC refine**, try **SIFT** on blurry or low-texture images, raise the preset (Balanced or Quality), or pick a model with more freedom
 
-### Poor Alignment Quality
-- **Issue**: Images appear misaligned despite success=true
-- **Causes**: Complex transformations beyond translation, low image contrast
-- **Solutions**: Use Quality preset, improve image preprocessing, verify motion model suitability
+### Wrong Alignment
+- **Cause**: repeated patterns or a model with too much freedom (Homography on few features)
+- **Solution**: use the simplest model that fits the setup (Translation or Euclidean for a fixed camera)
 
-### Performance Issues
-- **Issue**: Slow processing times
-- **Causes**: Large images, complex patterns, high-quality presets
-- **Solutions**: Use Ultra-Fast preset, downsample large images, optimize image quality
+### Black Borders
+- **Issue**: Edges of the output are black
+- **Cause**: Those areas of the reference frame are not covered by the moved target
+- **Solution**: Crop the output, or ignore the border in later comparisons
 
-### Memory Problems
-- **Issue**: Out of memory errors with large images
-- **Causes**: Very high resolution images, insufficient system memory
-- **Solutions**: Downsample images, process in batches, increase system memory
-
-### Format Compatibility
-- **Issue**: Alignment fails with certain image formats
-- **Causes**: Unsupported color spaces, unusual bit depths
-- **Solutions**: Convert to standard formats, verify image structure
-
-## Integration Patterns
-
-### Computer Vision Pipeline
-```
-Image Capture → Preprocessing → Image-Align → Feature Extraction → Analysis
-```
-Standard computer vision workflow with image stabilization.
-
-### Quality Inspection System
-```
-Reference Capture → Product Capture → Image-Align → Difference Analysis → Pass/Fail
-```
-Automated quality control with precise image registration.
-
-### Medical Imaging Workflow  
-```
-Reference Scan → Patient Scan → Image-Align → Comparative Analysis → Diagnosis Support
-```
-Medical image registration for diagnostic comparison.
-
-### Document Processing Pipeline
-```
-Template Scan → Document Scan → Image-Align → OCR Processing → Content Extraction
-```
-Document alignment for improved text recognition.
-
-## Advanced Usage
-
-### Dynamic Preset Selection
-```javascript
-// In function node before image-align:
-// Choose preset based on image characteristics
-const imageSize = msg.payload.reference.width * msg.payload.reference.height;
-if (imageSize > 2000000) { // Large images
-  msg.alignmentPreset = 'ultra-fast';
-} else if (msg.criticalAccuracy) {
-  msg.alignmentPreset = 'quality';  
-} else {
-  msg.alignmentPreset = 'balanced';
-}
-```
-
-### Custom Parameters for Fine-Tuning
-```javascript
-// Configure image-align node with custom preset for specific use case
-const nodeConfig = {
-  preset: 'custom',
-  customScale: 0.4,           // Medium resolution for balance
-  customMaxIterations: 25,    // Moderate iterations
-  customTerminationEps: 5e-3  // Balanced convergence threshold
-};
-
-// Example: High-precision alignment for microscopy images
-const microscopeConfig = {
-  preset: 'custom',
-  customScale: 0.8,           // High resolution to capture fine details
-  customMaxIterations: 75,    // More iterations for precision
-  customTerminationEps: 1e-5  // Very strict convergence
-};
-
-// Example: Ultra-fast alignment for video frames
-const videoConfig = {
-  preset: 'custom',
-  customScale: 0.15,          // Very low resolution for speed
-  customMaxIterations: 5,     // Minimal iterations
-  customTerminationEps: 0.05  // Loose convergence for speed
-};
-```
-
-### Batch Processing Pattern
-```javascript
-// Process multiple image pairs with consistent reference
-msg.imageQueue.forEach((target, index) => {
-  msg.payload = {
-    reference: msg.referenceImage, // Consistent reference
-    target: target // Different target for each
-  };
-  // Send to image-align node
-});
-```
-
-### Quality Validation
-```javascript  
-// After image-align node:
-if (msg.alignment.success && msg.alignment.timing.taskMs < 100) {
-  // Alignment succeeded and was fast - good quality match
-  msg.qualityScore = 'excellent';
-} else if (msg.alignment.success) {
-  // Alignment succeeded but slow - challenging alignment
-  msg.qualityScore = 'good';
-} else {
-  // Alignment failed - images too different
-  msg.qualityScore = 'poor';
-  // Consider fallback processing
-}
-```
-
-### Performance Monitoring
-```javascript
-// Track alignment performance over time
-if (!flow.get('alignmentStats')) {
-  flow.set('alignmentStats', { total: 0, successful: 0, avgTime: 0 });
-}
-
-const stats = flow.get('alignmentStats');
-stats.total++;
-if (msg.alignment.success) {
-  stats.successful++;
-}
-stats.avgTime = (stats.avgTime * (stats.total - 1) + msg.alignment.timing.taskMs) / stats.total;
-flow.set('alignmentStats', stats);
-
-msg.performanceStats = {
-  successRate: stats.successful / stats.total,
-  averageTime: stats.avgTime
-};
-```
-
-### Transformation Matrix Analysis
-```javascript
-// After image-align node with returnMatrix enabled:
-if (msg.alignment.success && msg.alignment.transformMatrix) {
-  const matrix = msg.alignment.transformMatrix;
-  
-  // Simple translation values
-  node.log(`Image shifted by dx: ${matrix.dx}, dy: ${matrix.dy} pixels`);
-  
-  // Access different matrix formats
-  const opencv2x3 = matrix.matrix2x3;  // [a, b, dx, c, d, dy]
-  const homogeneous3x3 = matrix.matrix3x3;  // [a, b, dx, c, d, dy, 0, 0, 1]
-  const transform = matrix.transform;  // Same as matrix3x3
-  
-  // Analyze alignment quality
-  const totalShift = Math.sqrt(matrix.dx * matrix.dx + matrix.dy * matrix.dy);
-  if (totalShift < 5) {
-    msg.alignmentQuality = 'excellent';
-  } else if (totalShift < 20) {
-    msg.alignmentQuality = 'good';
-  } else {
-    msg.alignmentQuality = 'poor';
-  }
-  
-  // Store for applying to other images
-  flow.set('lastAlignment', matrix);
-}
-```
-
-### Applying Transformation to Other Images
-```javascript
-// Use stored transformation matrix to align additional images
-const storedMatrix = flow.get('lastAlignment');
-if (storedMatrix && msg.additionalImages) {
-  msg.additionalImages.forEach((image, index) => {
-    // Note: You would need a custom transformation function or another alignment node
-    // The matrix provides the exact translation values needed
-    msg.transformationNeeded = {
-      dx: storedMatrix.dx,
-      dy: storedMatrix.dy
-    };
-  });
-}
-```
-
-## Best Practices
-
-### Image Preparation
-- Use images with sufficient contrast and distinctive features
-- Ensure reasonable similarity between reference and target images
-- Consider preprocessing (histogram equalization, noise reduction) for challenging images
-- Maintain consistent lighting conditions when possible
-
-### Performance Optimization  
-- Start with Ultra-Fast preset and upgrade only if accuracy insufficient
-- Downsample very large images (>4MP) before alignment if possible
-- Use Raw output format for processing chains to avoid encoding overhead
-- Monitor timing metrics to optimize preset selection
-
-### Quality Control
-- Always check `alignment.success` flag before using results
-- Implement fallback behavior for alignment failures
-- Monitor processing times to detect performance degradation
-- Validate alignment quality using automated metrics when possible
-
-### Error Handling
-- Implement graceful handling of alignment failures
-- Provide meaningful feedback for different failure modes
-- Log alignment statistics for system monitoring
-- Consider retry logic with different presets for critical applications
-
-### Integration Strategy
-- Design workflows to handle both successful and failed alignments
-- Implement quality scoring based on timing and success metrics  
-- Consider batch processing patterns for efficiency with multiple images
-- Plan for scalability based on expected image volumes and quality requirements
-
-### Debug and Development
-- Enable debug mode during development for visual verification
-- Use timing metrics to optimize preset selection for your use case
-- Test with representative image pairs from your target domain
-- Validate alignment quality using domain-specific metrics
+### Images from Context Are Ignored
+- **Issue**: Reference or target set to `flow` or `global` is not found
+- **Solution**: Copy the images into the message first; this node reads `msg` properties only
