@@ -42,8 +42,9 @@ echo "Configuring OpenCV..."
 # Detect platform for platform-specific flags
 PLATFORM_FLAGS=""
 if [[ "$OSTYPE" == "darwin"* ]]; then
-    # macOS specific settings
-    PLATFORM_FLAGS="-DCMAKE_OSX_DEPLOYMENT_TARGET=10.15"
+    # macOS specific settings. The bundled zlib (1.2.13) defines fdopen() as NULL on macOS, which
+    # breaks the Xcode 16 SDK's stdio.h; defining the name first keeps zlib's macro out.
+    PLATFORM_FLAGS="-DCMAKE_OSX_DEPLOYMENT_TARGET=10.15 -DCMAKE_C_FLAGS=-Dfdopen=fdopen"
 
     # For Apple Silicon cross-compilation support
     if [[ "$(uname -m)" == "arm64" ]]; then
