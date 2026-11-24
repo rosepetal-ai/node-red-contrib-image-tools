@@ -92,10 +92,11 @@ module.exports = function (RED) {
         //   ecc           - intensity-based ECC only (legacy default)
         //   features      - ORB+RANSAC only, no ECC refinement
         //   features+ecc  - ORB seed -> ECC refinement (best accuracy)
+        //   shift         - exhaustive translation search (low-texture / line-scan images)
         // Default 'ecc' for back-compat with flows saved before this field existed;
         // new nodes get 'features+ecc' via the HTML defaults block.
         const pipeline = config.pipeline || 'ecc';
-        const VALID_PIPELINES = ['ecc', 'features', 'features+ecc'];
+        const VALID_PIPELINES = ['ecc', 'features', 'features+ecc', 'shift'];
         if (!VALID_PIPELINES.includes(pipeline)) {
           return NodeUtils.handleValidationErrorWithPassthrough(
             node,

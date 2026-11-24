@@ -109,6 +109,10 @@ protected:
     cv::Mat diff;
     cv::absdiff(gray1, gray2, diff);
 
+    // Pure black in either input is alignment border / padding (the stats below ignore it).
+    // Zero it BEFORE the blur too, or its huge diff bleeds ~ksize/2 px into the valid area.
+    diff.setTo(0, (gray1 == 0) | (gray2 == 0));
+
     // Optional Gaussian blur to smooth noise
     if (blurSize > 0) {
       int ksize = blurSize | 1; // ensure odd

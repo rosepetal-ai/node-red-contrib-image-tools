@@ -217,14 +217,17 @@
                     case 'features+ecc':
                         description = 'ORB seeds an ECC refinement pass. Most accurate; recommended default.';
                         break;
+                    case 'shift':
+                        description = 'Exhaustive translation search. For low-texture or line-scan images where features fail; always a pure shift.';
+                        break;
                 }
                 $('#pipeline-description').text(description);
                 // ECC Refine policy is only meaningful when ECC actually runs
                 $('#ecc-refine-row').toggle(pipeline === 'features+ecc');
                 $('#ecc-refine-description').toggle(pipeline === 'features+ecc');
                 // Detector is only used by the feature-seed stage
-                $('#detector-row').toggle(pipeline !== 'ecc');
-                $('#detector-description').toggle(pipeline !== 'ecc');
+                $('#detector-row').toggle(pipeline === 'features' || pipeline === 'features+ecc');
+                $('#detector-description').toggle(pipeline === 'features' || pipeline === 'features+ecc');
             }
 
             $('#node-input-pipeline').on('change', updatePipelineDescription);
@@ -509,6 +512,7 @@
             <option value="ecc">ECC only (intensity)</option>
             <option value="features">Features only (ORB)</option>
             <option value="features+ecc">Features &rarr; ECC refine</option>
+            <option value="shift">Shift search (translation)</option>
         </select>
     </div>
     <div class="form-row">
@@ -623,6 +627,7 @@
         <li><code>ecc</code> &mdash; intensity-based ECC only, identity init. Legacy behavior. Fast for small misalignments but diverges when golden and scan are far apart.</li>
         <li><code>features</code> &mdash; ORB+RANSAC feature matching only. Robust to large misalignments and rotation/scale; no sub-pixel refinement.</li>
         <li><code>features+ecc</code> &mdash; ORB result seeds an ECC refinement pass. Best accuracy. Recommended default for new nodes.</li>
+        <li><code>shift</code> &mdash; exhaustive translation search: the centre of the target slides over the reference within &plusmn;10&nbsp;% of the height and &plusmn;4&nbsp;% of the width (at least 150 / 60 px), after removing each column and line mean (line-scan column gains, lamp flicker). Always a pure translation, whatever <em>Motion Model</em> says; sub-pixel peak. Fails (no matrix) on a weak match or when the best shift sits on the window edge. For low-texture images or wood grain where feature points are scarce or ambiguous.</li>
       </ul>
       New nodes default to <code>features+ecc</code>; existing saved flows that lack this field fall back to <code>ecc</code> for full backward compatibility. If ECC diverges after a successful feature seed, the seed itself is returned (rather than failing the alignment).
     </dd>
@@ -669,7 +674,7 @@
         <li><code>success</code>: boolean indicating alignment success</li>
         <li><code>timing</code>: processing timing breakdown</li>
         <li><code>preset</code>: speed preset used</li>
-        <li><code>pipeline</code>: pipeline used (<code>ecc</code>, <code>features</code>, or <code>features+ecc</code>)</li>
+        <li><code>pipeline</code>: pipeline used (<code>ecc</code>, <code>features</code>, <code>features+ecc</code>, or <code>shift</code>)</li>
         <li><code>eccRefine</code>: ECC refinement policy used (<code>always</code>, <code>auto</code>, or <code>never</code>)</li>
         <li><code>detector</code>: feature detector used (<code>orb</code> or <code>sift</code>)</li>
         <li><code>motionModel</code>: motion model used (<code>translation</code>, <code>euclidean</code>, <code>affine</code>, or <code>homography</code>)</li>
