@@ -158,14 +158,43 @@ static int ParseMotionModel(const std::string& name) {
 //   ECC          - intensity-based ECC only, identity init (legacy default)
 //   FEATURES     - ORB+RANSAC only, no ECC refinement
 //   FEATURES_ECC - ORB seed -> ECC refinement (best accuracy, recommended for new nodes)
-enum class AlignPipeline { ECC, FEATURES, FEATURES_ECC };
+//   SHIFT        - exhaustive translation search (template matching); always a pure
+//                  translation, for low-texture or line-scan images where features fail
+enum class AlignPipeline { ECC, FEATURES, FEATURES_ECC, SHIFT };
 
 static AlignPipeline ParsePipeline(const std::string& name) {
     if (name == "ecc")          return AlignPipeline::ECC;
     if (name == "features")     return AlignPipeline::FEATURES;
     if (name == "features+ecc") return AlignPipeline::FEATURES_ECC;
+    if (name == "shift")        return AlignPipeline::SHIFT;
     throw std::runtime_error("Unknown pipeline: " + name +
-        " (expected: ecc, features, or features+ecc)");
+        " (expected: ecc, features, features+ecc, or shift)");
+}
+
+// Shift search tuning. The window is a fraction of the image (or a floor in full-res px,
+// whichever is larger), capped at a quarter so the template keeps half of each axis.
+constexpr double kShiftRangeY = 0.10, kShiftRangeX = 0.04;
+constexpr double kShiftFloorY = 150.0, kShiftFloorX = 60.0;
+constexpr double kShiftMinScore = 0.15;   // normalized correlation below this = no match
+
+// Zero-mean, high-passed copy for the shift search. Removes the per-column gain (line-scan
+// cameras: identical in both images, so it pulls any correlation toward zero shift), the
+// per-line brightness (lamp flicker, different in every capture) and slow shading.
+static cv::Mat FlattenForShift(const cv::Mat& gray, double sigma) {
+    cv::Mat f, colMean, rowMean, low;
+    gray.convertTo(f, CV_32F);
+    cv::reduce(f, colMean, 0, cv::REDUCE_AVG);
+    f -= cv::repeat(colMean, f.rows, 1);
+    cv::reduce(f, rowMean, 1, cv::REDUCE_AVG);
+    f -= cv::repeat(rowMean, 1, f.cols);
+    cv::GaussianBlur(f, low, cv::Size(0, 0), sigma);
+    return f - low;
+}
+
+// Sub-pixel offset of a peak from its two neighbours (parabola through three samples).
+static double ParabolicPeak(float left, float centre, float right) {
+    const float d = left - 2.0f * centre + right;
+    return std::abs(d) > 1e-12f ? 0.5 * (left - right) / d : 0.0;
 }
 
 // ECC refinement policy (only meaningful when pipeline == FEATURES_ECC):
@@ -243,8 +272,13 @@ public:
             motionFlag = ParseMotionModel(motionModelName);
             useHomography = (motionFlag == cv::MOTION_HOMOGRAPHY);
 
-            // Same for pipeline mode (ecc / features / features+ecc).
+            // Same for pipeline mode (ecc / features / features+ecc / shift).
             pipelineMode = ParsePipeline(pipelineName);
+            // The shift search only ever returns a translation, whatever the motion model says
+            if (pipelineMode == AlignPipeline::SHIFT) {
+                motionFlag = cv::MOTION_TRANSLATION;
+                useHomography = false;
+            }
 
             // And the ECC refinement policy (always / auto / never).
             eccRefineMode = ParseEccRefine(eccRefineName);
@@ -849,7 +883,38 @@ private:
         }
     }
 
+    // Exhaustive translation search on the small frames: the centre of the target slides
+    // over the reference within the shift window (matchTemplate, normalized correlation),
+    // then a parabolic sub-pixel step. Fails (no matrix) on a weak peak or a peak on the
+    // window edge, where the true shift may lie outside: invalid beats a wrong warp.
+    bool FindShift(const cv::Mat& refSmall, const cv::Mat& targetSmall, cv::Mat& transformMatrix) const {
+        const cv::Mat ref = FlattenForShift(refSmall, std::max(2.0, 16.0 * scale));
+        const cv::Mat tgt = FlattenForShift(targetSmall, std::max(2.0, 16.0 * scale));
+        const int W = std::min(ref.cols, tgt.cols), H = std::min(ref.rows, tgt.rows);
+        const int sx = std::min(W / 4, static_cast<int>(std::ceil(std::max(kShiftRangeX * W, kShiftFloorX * scale))));
+        const int sy = std::min(H / 4, static_cast<int>(std::ceil(std::max(kShiftRangeY * H, kShiftFloorY * scale))));
+        if (W - 2 * sx < 16 || H - 2 * sy < 16) return false;
+
+        cv::Mat res;
+        cv::matchTemplate(ref(cv::Rect(0, 0, W, H)), tgt(cv::Rect(sx, sy, W - 2 * sx, H - 2 * sy)),
+                          res, cv::TM_CCOEFF_NORMED);
+        double best = 0.0;
+        cv::Point p;
+        cv::minMaxLoc(res, nullptr, &best, nullptr, &p);
+        if (!std::isfinite(best) || best < kShiftMinScore) return false;
+        if (p.x == 0 || p.y == 0 || p.x == res.cols - 1 || p.y == res.rows - 1) return false;
+
+        const double fx = p.x + ParabolicPeak(res.at<float>(p.y, p.x - 1), res.at<float>(p.y, p.x), res.at<float>(p.y, p.x + 1));
+        const double fy = p.y + ParabolicPeak(res.at<float>(p.y - 1, p.x), res.at<float>(p.y, p.x), res.at<float>(p.y + 1, p.x));
+        // target (x, y) lies on reference (x + dx, y + dy); the warp matrix maps reference -> target
+        const double dx = (fx - sx) / scale, dy = (fy - sy) / scale;
+        transformMatrix = (cv::Mat_<float>(2, 3) << 1.0f, 0.0f, static_cast<float>(-dx),
+                                                    0.0f, 1.0f, static_cast<float>(-dy));
+        return true;
+    }
+
     // Find transformation matrix - dispatches on the configured pipeline:
+    //   SHIFT        -> FindShift (exhaustive translation search, no ECC)
     //   ECC          -> identity init -> findTransformECC (legacy path)
     //   FEATURES     -> ORB+RANSAC seed only, no ECC
     //   FEATURES_ECC -> ORB seed -> findTransformECC refinement.
@@ -892,6 +957,9 @@ private:
             cv::Mat refSmall, targetSmall;
             resizeOrCached(refGray, refSmall);
             resizeOrCached(targetGray, targetSmall);
+
+            if (pipelineMode == AlignPipeline::SHIFT)
+                return FindShift(refSmall, targetSmall, transformMatrix);
 
             // -------- Stage 1: optional ORB feature seed -----------------
             cv::Mat seedMatrix;     // small-frame coords

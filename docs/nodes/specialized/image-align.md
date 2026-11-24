@@ -79,7 +79,7 @@ The matrix maps a pixel of the aligned (reference) frame to its position in the 
 | Transform Matrix | off | **Return transformation matrix** in `msg.alignment.transformMatrix` |
 | Transform Polygon | off | **Transform polygon coordinates** read from Polygon Path |
 | Polygon Path | `msg.payload.polygon` | The polygon(s) to move |
-| Pipeline | Features → ECC refine | **ECC only (intensity)**, **Features only (ORB)** (uses the selected Detector) or **Features → ECC refine** |
+| Pipeline | Features → ECC refine | **ECC only (intensity)**, **Features only (ORB)** (uses the selected Detector), **Features → ECC refine** or **Shift search (translation)** |
 | Detector | ORB (fast, default) | **ORB** or **SIFT (robust, slower)**, for the feature stage |
 | ECC Refine | Always (legacy, accurate) | With Features → ECC refine: **Always**, **Auto (skip when seed is strong)** or **Never (use seed only)** |
 | Motion Model | Affine (6 DoF, +scale+shear) | **Translation (2 DoF)**, **Euclidean (3 DoF, +rotation)**, **Affine (6 DoF, +scale+shear)** or **Homography (8 DoF, +perspective)** |
@@ -92,6 +92,7 @@ Nodes saved by versions that had no Motion Model or Pipeline setting run as **Tr
 - **ECC only**: intensity-based ECC starting from no movement. Suits small shifts between images of the same scene.
 - **Features only**: up to 800 ORB (or SIFT) keypoints per image, matched and fitted robustly (USAC MAGSAC for affine and homography, RANSAC for translation and euclidean). Handles larger movements; no ECC.
 - **Features → ECC refine**: the feature result is the starting point of ECC. If ECC does not converge, the feature result is used. With **Auto**, ECC is skipped when the feature fit has at least 50 inliers; with **Never**, the feature result is used without ECC. When the feature stage finds no transform, ECC runs from no movement whatever ECC Refine says, so **Never** then differs from Features only, which fails.
+- **Shift search**: tries every shift in a window and keeps the best, so it does not depend on keypoints. The centre of the target slides over the reference within ±10 % of the height and ±4 % of the width (at least 150 and 60 px at full resolution), on copies with each column mean and each line mean removed and slow shading high-passed: line-scan cameras add a column pattern that is identical in both images, and lamp flicker changes line brightness from one capture to the next. The peak is refined to sub-pixel. The result is always a pure translation, whatever Motion Model says. It fails (no transform) when the best normalized correlation is below 0.15 or sits on the edge of the window, where the true shift may lie outside it. Use it for low-texture images or wood grain, where keypoints are scarce or all alike along one direction. Max Iterations and Termination Eps are not used.
 
 Before ECC, both images are converted to grayscale and their brightness and contrast are normalized, so moderate lighting changes are tolerated. ECC counts as converged when its correlation is above 0.1.
 
