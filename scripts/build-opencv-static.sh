@@ -41,10 +41,14 @@ echo "Configuring OpenCV..."
 
 # Detect platform for platform-specific flags
 PLATFORM_FLAGS=""
+C_FLAGS=""
 if [[ "$OSTYPE" == "darwin"* ]]; then
-    # macOS specific settings. The bundled zlib (1.2.13) defines fdopen() as NULL on macOS, which
-    # breaks the Xcode 16 SDK's stdio.h; defining the name first keeps zlib's macro out.
-    PLATFORM_FLAGS="-DCMAKE_OSX_DEPLOYMENT_TARGET=10.15 -DCMAKE_C_FLAGS=-Dfdopen=fdopen"
+    # macOS specific settings
+    PLATFORM_FLAGS="-DCMAKE_OSX_DEPLOYMENT_TARGET=10.15"
+    # The Xcode 16 SDK defines TARGET_OS_MAC, which the bundled zlib 1.2.13 and libpng 1.6.37 read as
+    # classic Mac OS: zlib turns fdopen() into NULL (clashes with stdio.h) and libpng includes <fp.h>.
+    # Defining fdopen keeps zlib's macro out; math.h first sets the guard that skips <fp.h>.
+    C_FLAGS="-Dfdopen=fdopen -include math.h"
 
     # For Apple Silicon cross-compilation support
     if [[ "$(uname -m)" == "arm64" ]]; then
@@ -64,6 +68,7 @@ fi
 
 cmake .. \
     -DCMAKE_BUILD_TYPE=Release \
+    ${C_FLAGS:+"-DCMAKE_C_FLAGS=${C_FLAGS}"} \
     -DCMAKE_INSTALL_PREFIX="${INSTALL_DIR}" \
     \
     -DBUILD_SHARED_LIBS=OFF \
